@@ -2,6 +2,14 @@
 
 3D model rendering and JSCAD evaluation toolkit for AI agents.
 
+## Agent Skill
+
+This package ships a skill file that teaches AI coding agents how and when to use it. Install it with:
+
+```bash
+npx -y skills add remorses/rensei
+```
+
 ## Agent Workflow
 
 rensei enables AI agents to generate 3D models via an iterative feedback loop:
@@ -1962,25 +1970,106 @@ filterOuterRadius < nozzleBaseRadius - wall
 ```
 If not, increase `nozzleBaseRadius` until it fits, or reduce the feature size.
 
-### Auto Support Generation in the Slicer
+### Bambu Studio P1S — Parameter Reference
 
-Even with good model design you sometimes need supports. Understanding how slicers generate them helps you control the result.
+These are the exact parameter names as they appear in **Bambu Studio → Process** (enable **Advanced** toggle to see all of them). Parameters are grouped by impact level.
+
+#### Quality tab
+
+| Parameter | Default | Impact | What to change |
+|---|---|---|---|
+| **Layer height** | 0.2mm | ★★★ Critical | Lower (0.16mm) for smoother curves/threads; keep 0.2mm for speed |
+| **Initial layer height** | 0.2mm | ★★ Medium | Leave at 0.2mm; thicker initial layer helps adhesion |
+| **Seam position** | Aligned | ★ Minor | `Aligned` = seam in one spot; `Nearest` = less visible but scattered |
+| **Only one wall on top surfaces** | Top surfaces | ★ Minor | Leave default |
+| **Only one wall on first layer** | Off | ★ Minor | Leave off |
+
+#### Strength tab — Walls
+
+| Parameter | Default | Impact | What to change |
+|---|---|---|---|
+| **Wall loops** | 2 | ★★★ Critical | Increase to **3–4** for functional parts, threading surfaces |
+| **Embedding the wall into the infill** | Off | ★ Minor | Leave off |
+
+#### Strength tab — Top/bottom shells
+
+| Parameter | Default | Impact | What to change |
+|---|---|---|---|
+| **Top shell layers** | 5 | ★★ Medium | 5 is good; reduce to 3 for faster non-visible tops |
+| **Top shell thickness** | 1mm | ★★ Medium | Tied to layer height × top shell layers |
+| **Bottom shell layers** | 3 | ★★ Medium | Increase to 4–5 if bottom needs to be watertight |
+| **Top surface pattern** | Monotonic | ★ Minor | Monotonic = smooth; leave default |
+| **Bottom surface pattern** | Monotonic | ★ Minor | Leave default |
+| **Internal solid infill pattern** | Rectilinear | ★ Minor | Leave default |
+
+#### Strength tab — Sparse infill
+
+| Parameter | Default | Impact | What to change |
+|---|---|---|---|
+| **Sparse infill density** | 15% | ★★★ Critical | 15% = lightweight; 25–30% for functional/structural parts; 40%+ for maximum strength |
+| **Sparse infill pattern** | Grid | ★★ Medium | **Gyroid** = stronger + better filament/strength ratio; Grid = faster |
+| **Fill multiline** | 1 | ★ Minor | Leave default |
+
+#### Support tab
+
+| Parameter | Default | Impact | What to change |
+|---|---|---|---|
+| **Enable support** | Off | ★★★ Critical | Only enable if model truly needs it — always try to orient without |
+| **Type** | tree(auto) | ★★★ Critical | `tree(auto)` = less material, easier to remove; use for most prints |
+| **Threshold angle** | 30° | ★★★ Critical | **30° is very aggressive** (generates lots of support). Raise to **45–50°** for less support on gradual overhangs. The P1S default is 30° |
+| **On build plate only** | Off | ★★ Medium | **Enable** — prevents supports from touching model surfaces and scarring them |
+
+#### Others tab — Bed adhesion
+
+| Parameter | Default | Impact | What to change |
+|---|---|---|---|
+| **Brim type** | Auto | ★★ Medium | `Auto` adds brim when needed. Set `None` if part has good bed contact; `Outer brim only` for large flat parts that warp |
+| **Brim width** | 5mm | ★ Minor | Leave at 5mm |
+| **Skirt loops** | 0 | ★ Minor | Add 1–2 skirt loops to prime the nozzle before the print starts |
+
+#### Others tab — Special mode
+
+| Parameter | Default | Impact | What to change |
+|---|---|---|---|
+| **Spiral vase** | Off | ★★ Medium | Single continuous spiral wall — for vases/cups with no top. Ignores infill/shells |
+| **Fuzzy Skin** | None | ★ Minor | Adds textured surface — cosmetic only, leave off for functional parts |
+| **Print sequence** | By layer | ★ Minor | Leave default unless printing multiple objects |
+
+---
+
+### What to Actually Change vs Leave Alone
+
+**Change these first — biggest impact on print success:**
+
+```
+Layer height        → 0.2mm default is fine; 0.16mm for threads/fine detail
+Wall loops          → bump to 3 (default 2 is borderline for functional parts)
+Sparse infill density → 15% default OK for decorative; 25% for functional
+Threshold angle     → raise from 30° to 45° (default 30° generates too much support)
+Enable support      → OFF unless you verified the model actually needs it
+On build plate only → ON if you must use supports
+```
+
+**Leave these alone unless you have a specific problem:**
+
+```
+Seam position       → Aligned is fine
+Top/bottom shells   → defaults are good
+Infill pattern      → Grid works; switch to Gyroid only if you need more strength
+Brim type           → Auto handles itself
+Sparse infill pattern → Grid default is fine for most prints
+Initial layer height → don't change
+```
+
+**The "floating cantilever" warning** in Bambu Studio means a feature is geometrically connected to the rest of the model but builds mid-air in the chosen orientation. This is different from a slicer overhang — it's a structural topology issue. Fix by:
+- Flipping the model (most common fix)
+- Connecting the feature to the bed via the model geometry
+- Checking for self-intersecting profile polygons in `extrudeRotate` models (they produce disconnected bodies that look connected in 3D preview but aren't)
 
 **How Bambu Studio auto-detects support regions:**
 1. It analyzes each layer and finds surfaces with no layer below them
-2. Any surface exceeding the **threshold angle** (default 45°) gets flagged
-3. Support structures are generated below those regions
-
-**Key support settings (Bambu Studio):**
-
-| Setting | What it does | Recommendation |
-|---|---|---|
-| **Support type** | Normal (dense) or Tree (branching) | Tree: less material, easier to remove |
-| **Threshold angle** | Below this, no support generated | 45° default; raise to 50–55° for less support |
-| **On build plate only** | Supports only from the bed, never touching the model | Enable — prevents surface scarring |
-| **Top Z distance** | Gap between support top and model | 0.2mm default; increase to 0.25mm for easier removal |
-| **XY distance** | Gap between support and model sides | 0.35mm; increase if supports fuse to part |
-| **Interface layers** | Smooth top layer of the support | 2 layers; improves surface above support |
+2. Any surface exceeding the **Threshold angle** gets flagged (P1S default is 30° — very aggressive)
+3. Support structures of the chosen **Type** are generated below flagged regions
 
 **When supports are unavoidable vs when to redesign:**
 
@@ -1988,19 +2077,13 @@ Even with good model design you sometimes need supports. Understanding how slice
 USE SUPPORTS when:
   - The overhang is a small feature (<10mm) that can't be redesigned
   - The part is complex and redesigning takes longer than removing supports
-  - You're using soluble support material (dual extruder)
 
 REDESIGN INSTEAD when:
   - A simple flip/rotate eliminates the overhang
-  - The overhang is large (>20mm) → supports will leave bad surface finish
+  - The overhang is large (>20mm) → supports leave bad surface finish
   - The part is functional/sealing (supports leave rough surfaces that leak or bind)
   - Internal supports are impossible to remove
 ```
-
-**The "floating cantilever" warning** in Bambu Studio means a feature is geometrically connected to the rest of the model but builds mid-air in the chosen orientation. This is different from a slicer overhang — it's a structural topology issue. Fix by:
-- Flipping the model (most common fix)
-- Connecting the feature to the bed via the model geometry
-- Checking for self-intersecting profile polygons in `extrudeRotate` models (they produce disconnected bodies that look connected in 3D preview but aren't)
 
 ### Internal Features Must Print Bottom-Up
 
