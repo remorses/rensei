@@ -59,93 +59,11 @@ rensei stl model.ts --output model.stl
 
 # Screenshot an existing STL file
 rensei screenshot model.stl --view front --output front.png
-
-# Estimate filament weight (PLA, default settings)
-rensei weight model.ts
-
-# Estimate filament weight for PETG with 15% infill
-rensei weight model.ts --density 1.27 --infill 15
-
-# Estimate filament weight for ABS with 5 shells
-rensei weight model.ts --density 1.05 --infill 20 --shells 5
 ```
 
 Options: `--size` (default 1500), `--zoom`, `--color`, `--background`
 
-## Filament Weight Estimation
-
-`rensei weight <file>` computes filament weight directly from the JSCAD geometry — no slicing needed. It uses JSCAD's `measureAggregateVolume` to get the exact model volume, then splits it into shell and infill based on your print settings.
-
-```
-rensei weight model.ts
-```
-
-```
-Filament weight estimate for: model.ts
-─────────────────────────────────────────
-  Model volume:     12.15 cm³
-  Shell volume:     4.32 cm³  (3 shells × 0.4mm nozzle)
-  Inner volume:     7.83 cm³  (20% infill)
-  Density:          1.24 g/cm³
-─────────────────────────────────────────
-  ➜  Weight:        7.3 g
-  ➜  Filament:      2.44 m  (1.75mm diameter)
-─────────────────────────────────────────
-  Bounding box:     50.0 × 50.0 × 28.0 mm
-```
-
-### Common material presets
-
-**PLA** (most common, default settings):
-```bash
-rensei weight model.ts
-# --density 1.24  --infill 20  --shells 3  --nozzle 0.4
-```
-
-**PETG** (slightly denser, often lower infill for flexibility):
-```bash
-rensei weight model.ts --density 1.27 --infill 15
-```
-
-**ABS** (lighter than PLA, needs more walls for strength):
-```bash
-rensei weight model.ts --density 1.05 --infill 25 --shells 4
-```
-
-**TPU** (flexible filament, low infill):
-```bash
-rensei weight model.ts --density 1.21 --infill 10 --shells 3
-```
-
-**ASA** (outdoor/UV-resistant):
-```bash
-rensei weight model.ts --density 1.07 --infill 20
-```
-
-### All options
-
-| Flag | Default | Description |
-|---|---|---|
-| `--density` | `1.24` | Filament density in g/cm³ |
-| `--infill` | `20` | Infill percentage 0–100 |
-| `--shells` | `3` | Number of perimeter shells |
-| `--nozzle` | `0.4` | Nozzle diameter in mm |
-| `--layer-height` | `0.2` | Layer height in mm |
-
-### Common filament densities
-
-| Material | Density (g/cm³) |
-|---|---|
-| PLA | 1.24 |
-| PETG | 1.27 |
-| ABS | 1.05 |
-| ASA | 1.07 |
-| TPU (95A) | 1.21 |
-| Nylon (PA12) | 1.01 |
-| PC | 1.20 |
-| PLA+ | 1.24 |
-
-> **Note:** This is a fast estimate based on geometry volume, not actual toolpaths. For exact weight, slice in Bambu Studio / PrusaSlicer after exporting the STL with `rensei stl model.ts`.
+Advanced: `rensei weight <file>` is documented later in the 3D printing section.
 
 ---
 
@@ -1427,6 +1345,79 @@ const myGear = gear(20, 2, 5)
 JSCAD's CSG operations **guarantee watertight meshes** — every `union`, `subtract`, `intersect` produces a valid closed solid by construction. The STL serializer also auto-applies `snap` + `triangulate` before export, removing degenerate polygons. So mesh validity is rarely an issue.
 
 The real challenges are **physical printability**: wall thickness, overhangs, tolerances, orientation, and bed adhesion. This section covers how to design JSCAD models that actually print well.
+
+### Filament weight estimation
+
+`rensei weight <file>` computes filament weight directly from the JSCAD geometry before slicing.
+
+<details>
+<summary>Show weight examples, presets, and options</summary>
+
+```bash
+rensei weight model.ts
+```
+
+```
+Filament weight estimate for: model.ts
+─────────────────────────────────────────
+  Model volume:     12.15 cm³
+  Shell volume:     4.32 cm³  (3 shells × 0.4mm nozzle)
+  Inner volume:     7.83 cm³  (20% infill)
+  Density:          1.24 g/cm³
+─────────────────────────────────────────
+  ➜  Weight:        7.3 g
+  ➜  Filament:      2.44 m  (1.75mm diameter)
+─────────────────────────────────────────
+  Bounding box:     50.0 × 50.0 × 28.0 mm
+```
+
+**PLA** (most common, default settings):
+```bash
+rensei weight model.ts
+# --density 1.24  --infill 20  --shells 3  --nozzle 0.4
+```
+
+**PETG** (slightly denser, often lower infill for flexibility):
+```bash
+rensei weight model.ts --density 1.27 --infill 15
+```
+
+**ABS** (lighter than PLA, needs more walls for strength):
+```bash
+rensei weight model.ts --density 1.05 --infill 25 --shells 4
+```
+
+**TPU** (flexible filament, low infill):
+```bash
+rensei weight model.ts --density 1.21 --infill 10 --shells 3
+```
+
+**ASA** (outdoor/UV-resistant):
+```bash
+rensei weight model.ts --density 1.07 --infill 20
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `--density` | `1.24` | Filament density in g/cm³ |
+| `--infill` | `20` | Infill percentage 0–100 |
+| `--shells` | `3` | Number of perimeter shells |
+| `--nozzle` | `0.4` | Nozzle diameter in mm |
+| `--layer-height` | `0.2` | Layer height in mm |
+
+| Material | Density (g/cm³) |
+|---|---|
+| PLA | 1.24 |
+| PETG | 1.27 |
+| ABS | 1.05 |
+| ASA | 1.07 |
+| TPU (95A) | 1.21 |
+| Nylon (PA12) | 1.01 |
+| PC | 1.20 |
+| PLA+ | 1.24 |
+
+> **Note:** This is a fast estimate based on geometry volume, not actual toolpaths. For exact weight, slice in Bambu Studio / PrusaSlicer after exporting the STL with `rensei stl model.ts`.
+</details>
 
 ### Wall Thickness
 
