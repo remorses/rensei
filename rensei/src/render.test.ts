@@ -2,7 +2,14 @@ import { describe, it, expect, beforeAll } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import { PNG } from 'pngjs'
-import { renderStl, renderAllViews, PRESET_VIEWS, type PresetView } from './render.ts'
+import {
+    computeSquareGridSize,
+    renderAllViews,
+    renderStl,
+    renderViewGrid,
+    PRESET_VIEWS,
+    type PresetView,
+} from './render.ts'
 
 const STL_FIXTURE = path.resolve(import.meta.dirname, '../../obj_1_Holder_4cm.stl')
 const OUTPUT_DIR = path.resolve(import.meta.dirname, '../../test-output')
@@ -118,5 +125,49 @@ describe('renderAllViews', () => {
             // Save each for visual inspection
             fs.writeFileSync(path.join(OUTPUT_DIR, `${viewName}.png`), pngBuffer!)
         }
+    }, 120_000)
+})
+
+describe('computeSquareGridSize', () => {
+    it('uses the smallest square grid that fits all views', () => {
+        expect([1, 2, 3, 4, 5, 7, 9].map((count) => computeSquareGridSize(count))).toMatchInlineSnapshot(`
+          [
+            1,
+            2,
+            2,
+            2,
+            3,
+            3,
+            3,
+          ]
+        `)
+    })
+})
+
+describe('renderViewGrid', () => {
+    it('renders selected views into a single square grid image', async () => {
+        const pngBuffer = await renderViewGrid({
+            stlPath: STL_FIXTURE,
+            width: 600,
+            height: 600,
+            views: ['front', 'left'],
+            backgroundColor: '#1a1a2e',
+        })
+
+        const png = PNG.sync.read(pngBuffer)
+        expect(png.width).toBe(600)
+        expect(png.height).toBe(600)
+
+        const emptyCellCenter = { x: 450, y: 450 }
+        const pixelIndex = (emptyCellCenter.y * png.width + emptyCellCenter.x) * 4
+        expect(Array.from(png.data.slice(pixelIndex, pixelIndex + 3))).toMatchInlineSnapshot(`
+          [
+            3,
+            3,
+            7,
+          ]
+        `)
+
+        fs.writeFileSync(path.join(OUTPUT_DIR, 'selected-grid.png'), pngBuffer)
     }, 120_000)
 })

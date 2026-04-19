@@ -8,7 +8,21 @@ import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
 const packageJson = require('../package.json') as { version: string }
 
-const VALID_VIEWS = ['front', 'back', 'left', 'right', 'top', 'bottom', 'iso', 'all'] as const
+const PRESET_VIEW_NAMES = ['front', 'back', 'left', 'right', 'top', 'bottom', 'iso'] as const
+const VALID_VIEWS = [...PRESET_VIEW_NAMES, 'all'] as const
+type ViewOption = (typeof VALID_VIEWS)[number]
+
+function resolveRequestedViews(requestedViews: readonly ViewOption[]): (typeof PRESET_VIEW_NAMES)[number][] {
+    if (requestedViews.includes('all')) {
+        if (requestedViews.length > 1) {
+            throw new Error('Cannot combine --view all with other --view values')
+        }
+
+        return [...PRESET_VIEW_NAMES]
+    }
+
+    return requestedViews as (typeof PRESET_VIEW_NAMES)[number][]
+}
 
 const cli = goke('rensei')
 
@@ -34,14 +48,14 @@ cli
     .command('screenshot <file>', 'Render an STL or JSCAD JS/TS file to PNG screenshots')
     .option(
         '--output <path>',
-        z.string().default('output.png').describe('Output file path (or directory when --view all)'),
+        z.string().default('output.png').describe('Output PNG file path'),
     )
     .option(
-        '--view [view]',
+        '--view <view>',
         z
-            .enum(VALID_VIEWS)
-            .default('iso')
-            .describe('Preset view: front, back, left, right, top, bottom, iso, all'),
+            .array(z.enum(VALID_VIEWS))
+            .default(['iso'])
+            .describe('Preset view (repeatable): front, back, left, right, top, bottom, iso, all'),
     )
     .option('--azimuth [degrees]', z.number().describe('Camera azimuth in degrees (overrides --view)'))
     .option('--elevation [degrees]', z.number().describe('Camera elevation in degrees (overrides --view)'))
@@ -50,7 +64,7 @@ cli
     .option('--color [hex]', z.string().default('#8B9DAF').describe('Model color as hex'))
     .option('--background [hex]', z.string().default('#1a1a2e').describe('Background color as hex'))
     .action(async (file, options, { console, fs }) => {
-        const { renderStl, renderAllViews, PRESET_VIEWS } = await import('./render.ts')
+        const { renderStl, renderViewGrid, PRESET_VIEWS } = await import('./render.ts')
         type PresetView = keyof typeof PRESET_VIEWS
 
         const { stlPath, stlData } = await resolveStlData(file)
@@ -65,35 +79,37 @@ cli
             backgroundColor: options.background,
         }
 
-        if (options.view === 'all') {
-            const outDir = options.output.replace(/\.png$/i, '')
-            await fs.mkdir(outDir, { recursive: true })
+        const requestedViews = resolveRequestedViews(options.view)
 
-            console.log(`Rendering all views of ${file} to ${outDir}/`)
-            const results = await renderAllViews(baseOptions)
-
-            for (const [name, pngBuffer] of results) {
-                const filePath = `${outDir}/${name}.png`
-                await fs.writeFile(filePath, pngBuffer)
-                console.log(`  ✓ ${name}.png`)
+        if (requestedViews.length > 1) {
+            if (options.azimuth !== undefined || options.elevation !== undefined) {
+                throw new Error('Custom --azimuth/--elevation cannot be combined with multiple --view flags')
             }
 
-            console.log(`Done — ${results.size} images saved`)
+            console.log(`Rendering ${requestedViews.length} views of ${file} into ${options.output}`)
+            const pngBuffer = await renderViewGrid({
+                ...baseOptions,
+                views: requestedViews as PresetView[],
+            })
+
+            await fs.writeFile(options.output, pngBuffer)
+            console.log(`Saved ${options.output} (${(pngBuffer.length / 1024).toFixed(0)} KB)`)
         } else {
             let azimuth: number
             let elevation: number
+            const view = requestedViews[0] as PresetView
 
             if (options.azimuth !== undefined || options.elevation !== undefined) {
                 azimuth = options.azimuth ?? 0
                 elevation = options.elevation ?? 0
             } else {
-                const preset = PRESET_VIEWS[options.view as PresetView]
+                const preset = PRESET_VIEWS[view]
                 azimuth = preset.azimuth
                 elevation = preset.elevation
             }
 
             console.log(
-                `Rendering ${file} — view: ${options.view}, azimuth: ${azimuth}°, elevation: ${elevation}°`,
+                `Rendering ${file} — view: ${view}, azimuth: ${azimuth}°, elevation: ${elevation}°`,
             )
 
             const pngBuffer = await renderStl({
