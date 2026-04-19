@@ -2,7 +2,15 @@
   "name": "rensei",
   "version": "0.1.0",
   "type": "module",
-  "description": "Screenshot STL files from multiple angles using Three.js WebGPU in Node.js",
+  "description": "3D model rendering and JSCAD evaluation toolkit for AI agents — screenshot STL/JSCAD scripts from multiple angles using Three.js WebGPU in Node.js",
+  "homepage": "https://github.com/remorses/rensei#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/remorses/rensei.git"
+  },
+  "bugs": {
+    "url": "https://github.com/remorses/rensei/issues"
+  },
   "bin": "dist/cli.js",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -27,7 +35,9 @@
   },
   "files": [
     "src",
-    "dist"
+    "dist",
+    "README.md",
+    "skills"
   ],
   "scripts": {
     "build": "tsc && chmod +x dist/cli.js",
@@ -35,16 +45,21 @@
     "test": "vitest"
   },
   "keywords": [
+    "jscad",
+    "csg",
+    "3d",
     "stl",
     "screenshot",
-    "3d",
+    "render",
     "webgpu",
     "three",
     "threejs",
-    "render",
     "headless",
     "node",
-    "cli"
+    "cli",
+    "3d-printing",
+    "parametric",
+    "ai"
   ],
   "dependencies": {
     "@jscad/modeling": "^2.13.0",
