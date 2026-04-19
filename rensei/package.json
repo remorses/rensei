@@ -1,12 +1,13 @@
 {
   "name": "rensei",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "3D model rendering and JSCAD evaluation toolkit for AI agents — screenshot STL/JSCAD scripts from multiple angles using Three.js WebGPU in Node.js",
   "homepage": "https://github.com/remorses/rensei#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/remorses/rensei.git"
+    "url": "https://github.com/remorses/rensei.git",
+    "directory": "rensei"
   },
   "bugs": {
     "url": "https://github.com/remorses/rensei/issues"
@@ -41,7 +42,7 @@
   ],
   "scripts": {
     "build": "tsc && chmod +x dist/cli.js",
-    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" && pnpm build",
+    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" README.md skills && node --input-type=module -e \"import { cp, mkdir } from 'node:fs/promises'; await mkdir('skills/rensei', { recursive: true }); await cp('../README.md', 'README.md'); await cp('../skills/rensei/SKILL.md', 'skills/rensei/SKILL.md');\" && pnpm build",
     "test": "vitest"
   },
   "keywords": [

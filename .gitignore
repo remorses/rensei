@@ -31,3 +31,7 @@ tmp
 
 # Ignore rendered views (but keep docs/ images)
 views/
+
+# Generated publish assets for the rensei package
+rensei/README.md
+rensei/skills/

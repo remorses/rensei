@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0
+
+1. **New `rensei weight` command** — estimate filament usage directly from a JSCAD script before slicing:
+
+   ```bash
+   # PLA defaults
+   rensei weight model.ts
+
+   # PETG with lighter infill
+   rensei weight model.ts --density 1.27 --infill 15
+
+   # Stronger walls for a functional part
+   rensei weight model.ts --shells 5 --nozzle 0.4
+   ```
+
+   The command prints model volume, shell volume, infill volume, total filament weight, estimated filament length, and the bounding box in one pass.
+
+2. **The published npm package now includes the README and agent skill** — install `rensei` and keep the usage guide plus `skills/rensei/SKILL.md` in the package tarball instead of only in the GitHub repo.
+
 ## 0.1.0
 
 1. **New `rensei stl` command** — convert JSCAD TypeScript/JavaScript scripts directly to STL:
