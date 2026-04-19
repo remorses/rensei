@@ -1,6 +1,6 @@
 {
   "name": "rensei",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "3D model rendering and JSCAD evaluation toolkit for AI agents — screenshot STL/JSCAD scripts from multiple angles using Three.js WebGPU in Node.js",
   "homepage": "https://github.com/remorses/rensei#readme",
@@ -68,6 +68,7 @@
     "goke": "^6.8.0",
     "pngjs": "^7.0.0",
     "three": "^0.174.0",
+    "tsx": "^4.20.5",
     "webgpu": "^0.4.0",
     "zod": "^4.3.6"
   },

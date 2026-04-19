@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+1. **Fixed `npx rensei` for TypeScript JSCAD scripts** — the published package now includes the runtime `tsx` dependency required by `rensei stl`, `rensei screenshot`, and `rensei weight` when they import `.ts` model files from npm installs.
+
 ## 0.2.0
 
 1. **New `rensei weight` command** — estimate filament usage directly from a JSCAD script before slicing:

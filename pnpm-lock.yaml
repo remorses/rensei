@@ -47,6 +47,9 @@ importers:
       three:
         specifier: ^0.174.0
         version: 0.174.0
+      tsx:
+        specifier: ^4.20.5
+        version: 4.21.0
       webgpu:
         specifier: ^0.4.0
         version: 0.4.0
