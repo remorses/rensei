@@ -12,6 +12,10 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./modeling": {
+      "types": "./dist/modeling.d.ts",
+      "default": "./dist/modeling.js"
+    },
     "./src": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
@@ -43,6 +47,8 @@
     "cli"
   ],
   "dependencies": {
+    "@jscad/modeling": "^2.13.0",
+    "@jscad/stl-serializer": "^2.1.23",
     "goke": "^6.8.0",
     "pngjs": "^7.0.0",
     "three": "^0.174.0",

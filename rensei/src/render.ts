@@ -29,8 +29,10 @@ export const PRESET_VIEWS = {
 export type PresetView = keyof typeof PRESET_VIEWS
 
 export interface RenderOptions {
-    /** Path to the STL file */
-    stlPath: string
+    /** Path to the STL file (provide stlPath or stlData, not both) */
+    stlPath?: string
+    /** Raw STL binary data — used when piping from jscadToStl() to avoid temp files */
+    stlData?: Buffer
     /** Image width in pixels (default: 1500) */
     width?: number
     /** Image height in pixels (default: 1500) */
@@ -49,10 +51,18 @@ export interface RenderOptions {
 
 const DEG_TO_RAD = Math.PI / 180
 
-function loadAndCenterStl(stlPath: string) {
-    const stlBuffer = fs.readFileSync(stlPath)
+function loadAndCenterStl(stlPath?: string, stlData?: Buffer) {
+    let arrayBuffer: ArrayBuffer
+    if (stlData) {
+        arrayBuffer = stlData.buffer.slice(stlData.byteOffset, stlData.byteOffset + stlData.byteLength) as ArrayBuffer
+    } else if (stlPath) {
+        const fileBuffer = fs.readFileSync(stlPath)
+        arrayBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength) as ArrayBuffer
+    } else {
+        throw new Error('Either stlPath or stlData must be provided')
+    }
     const loader = new STLLoader()
-    const geometry = loader.parse(stlBuffer.buffer)
+    const geometry = loader.parse(arrayBuffer)
 
     geometry.computeBoundingBox()
     const center = new THREE.Vector3()
@@ -131,6 +141,7 @@ function positionCamera(
 export async function renderStl(options: RenderOptions): Promise<Buffer> {
     const {
         stlPath,
+        stlData,
         azimuth = 45,
         elevation = 35,
         modelColor = '#8B9DAF',
@@ -141,7 +152,7 @@ export async function renderStl(options: RenderOptions): Promise<Buffer> {
     const height = Number(options.height ?? 1500)
     const zoom = Number(options.zoom ?? 1)
 
-    const geometry = loadAndCenterStl(stlPath)
+    const geometry = loadAndCenterStl(stlPath, stlData)
     const { scene, material } = createScene(geometry, modelColor, backgroundColor)
 
     const fov = 40
@@ -181,6 +192,7 @@ export async function renderAllViews(
 ): Promise<Map<PresetView, Buffer>> {
     const {
         stlPath,
+        stlData,
         modelColor = '#8B9DAF',
         backgroundColor = '#1a1a2e',
     } = options
@@ -189,7 +201,7 @@ export async function renderAllViews(
     const height = Number(options.height ?? 1500)
     const zoom = Number(options.zoom ?? 1)
 
-    const geometry = loadAndCenterStl(stlPath)
+    const geometry = loadAndCenterStl(stlPath, stlData)
     const { scene, material } = createScene(geometry, modelColor, backgroundColor)
 
     const fov = 40

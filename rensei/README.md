@@ -1,19 +1,48 @@
+# rensei
+
+3D model rendering and JSCAD evaluation toolkit for AI agents.
+
+## Agent Workflow
+
+rensei enables AI agents to generate 3D models via an iterative feedback loop:
+
+1. **Analyze** user reference images (photos, sketches, descriptions)
+2. **Write** a JSCAD `.ts` script using `rensei/modeling` exports
+3. **Screenshot** with `rensei screenshot model.ts --view all --output ./views/`
+4. **Compare** rendered views against the reference from every angle
+5. **Update** the `.ts` script to fix shape/dimension differences
+6. **Repeat** until model matches from all orthogonal views (front, back, left, right, top, bottom, iso)
+
+## CLI Commands
+
+```bash
+# Screenshot a JSCAD script from all angles
+rensei screenshot model.ts --view all --output ./views/
+
+# Screenshot a single view
+rensei screenshot model.ts --view iso --output render.png
+
+# Screenshot with custom camera angle
+rensei screenshot model.ts --azimuth 45 --elevation 30 --output render.png
+
+# Convert JSCAD script to STL
+rensei stl model.ts --output model.stl
+
+# Screenshot an existing STL file
+rensei screenshot model.stl --view front --output front.png
+```
+
+Options: `--size` (default 1500), `--zoom`, `--color`, `--background`
+
+## JSCAD via rensei/modeling
+
+rensei uses JSCAD (`@jscad/modeling`) for CSG operations. The `rensei/modeling` export re-exports all JSCAD APIs as flat named exports so scripts don't need `@jscad/modeling` installed separately.
+
+```typescript
+import { cube, sphere, subtract, union, translate } from 'rensei/modeling'
+```
+
 ---
-name: jscad
-description: >
-  JSCAD (OpenJSCAD) 3D modeling with @jscad/modeling. Constructive Solid Geometry (CSG) in JavaScript.
-  Covers all primitives (cube, sphere, cylinder, polygon, etc.), boolean operations (union, subtract,
-  intersect), transforms (translate, rotate, scale, mirror), extrusions (linear, rotate, helical,
-  fromSlices), hulls, expansions, colors, measurements, bezier curves, and text. ALWAYS load this
-  skill when generating JSCAD code, creating 3D models programmatically, or working with @jscad/modeling.
-  Also load when the user mentions CSG, OpenSCAD, parametric CAD, or 3D printing model generation.
----
-
-# JSCAD Modeling API
-
-Package: `@jscad/modeling` — Solid Modelling Library for 2D and 3D Geometries using Constructive Solid Geometry (CSG).
-
-Source: https://github.com/jscad/OpenJSCAD.org
 
 ## Core Concepts
 
@@ -29,48 +58,56 @@ The general workflow: **create primitives → transform → combine with boolean
 
 Every JSCAD file exports a `main()` function that returns geometry or an array of geometries:
 
-```js
-const jscad = require('@jscad/modeling')
-const { cube } = jscad.primitives
+```typescript
+import { cube } from 'rensei/modeling'
 
-const main = () => {
-  return cube({ size: 10 })
+export function main() {
+    return cube({ size: 10 })
 }
-
-module.exports = { main }
 ```
 
 ## Setup and Imports
 
-```js
-const jscad = require('@jscad/modeling')
-
-// All available top-level namespaces:
-const { cube, cuboid, sphere, cylinder, cylinderElliptic, ellipsoid,
-        geodesicSphere, roundedCuboid, roundedCylinder, torus, polyhedron,
-        circle, ellipse, square, rectangle, roundedRectangle, polygon,
-        triangle, star, line, arc } = jscad.primitives
-
-const { union, subtract, intersect, scission } = jscad.booleans
-const { translate, translateX, translateY, translateZ,
-        rotate, rotateX, rotateY, rotateZ,
-        scale, scaleX, scaleY, scaleZ,
-        mirror, mirrorX, mirrorY, mirrorZ,
-        center, centerX, centerY, centerZ, align } = jscad.transforms
-const { extrudeLinear, extrudeRotate, extrudeRectangular, extrudeHelical,
-        extrudeFromSlices, project, slice } = jscad.extrusions
-const { hull, hullChain } = jscad.hulls
-const { expand, offset } = jscad.expansions
-const { colorize, colorNameToRgb, hexToRgb, hslToRgb, hsvToRgb } = jscad.colors
-const { measureBoundingBox, measureBoundingSphere, measureCenter,
-        measureCenterOfMass, measureDimensions, measureArea,
-        measureVolume, measureAggregateArea, measureAggregateBoundingBox,
-        measureAggregateVolume } = jscad.measurements
-const { generalize, snap, retessellate } = jscad.modifiers
-const { vectorText, vectorChar } = jscad.text
-const { bezier } = jscad.curves
-const { mat4, vec2, vec3 } = jscad.maths
-const { geom2, geom3, path2 } = jscad.geometries
+```typescript
+import {
+    // Primitives
+    cube, cuboid, sphere, cylinder, cylinderElliptic, ellipsoid,
+    geodesicSphere, roundedCuboid, roundedCylinder, torus, polyhedron,
+    circle, ellipse, square, rectangle, roundedRectangle, polygon,
+    triangle, star, line, arc,
+    // Booleans
+    union, subtract, intersect, scission,
+    // Transforms
+    translate, translateX, translateY, translateZ,
+    rotate, rotateX, rotateY, rotateZ,
+    scale, scaleX, scaleY, scaleZ,
+    mirror, mirrorX, mirrorY, mirrorZ,
+    center, centerX, centerY, centerZ, align,
+    // Extrusions
+    extrudeLinear, extrudeRotate, extrudeRectangular, extrudeHelical,
+    extrudeFromSlices, project, slice,
+    // Hulls
+    hull, hullChain,
+    // Expansions
+    expand, offset,
+    // Colors
+    colorize, colorNameToRgb, hexToRgb, hslToRgb, hsvToRgb,
+    // Measurements
+    measureBoundingBox, measureBoundingSphere, measureCenter,
+    measureCenterOfMass, measureDimensions, measureArea,
+    measureVolume, measureAggregateArea, measureAggregateBoundingBox,
+    measureAggregateVolume,
+    // Modifiers
+    generalize, snap, retessellate,
+    // Text
+    vectorText, vectorChar,
+    // Curves
+    bezier,
+    // Math
+    mat4, vec2, vec3,
+    // Geometries
+    geom2, geom3, path2,
+} from 'rensei/modeling'
 ```
 
 All angles in JSCAD are in **radians**. Use `Math.PI / 180 * degrees` to convert.
@@ -83,7 +120,7 @@ All angles in JSCAD are in **radians**. Use `Math.PI / 180 * degrees` to convert
 
 Equal-sided box centered at origin.
 
-```js
+```typescript
 cube()                                // 2x2x2 at origin
 cube({ size: 10 })                    // 10x10x10
 cube({ size: 5, center: [0, 0, 2.5] })
@@ -95,7 +132,7 @@ Options: `{ center?: [x,y,z], size?: number }`
 
 Box with different dimensions per axis.
 
-```js
+```typescript
 cuboid({ size: [10, 20, 5] })         // 10 wide, 20 deep, 5 tall
 cuboid({ size: [4, 4, 1], center: [0, 0, 0.5] })
 ```
@@ -104,7 +141,7 @@ Options: `{ center?: [x,y,z], size?: [x,y,z] }`
 
 ### sphere
 
-```js
+```typescript
 sphere()                              // radius 1, 32 segments
 sphere({ radius: 5, segments: 64 })
 sphere({ radius: 3, center: [10, 0, 0] })
@@ -116,7 +153,7 @@ Options: `{ center?: [x,y,z], radius?: number, segments?: number, axes?: [x,y,z]
 
 Icosahedron-based sphere with more uniform triangle distribution.
 
-```js
+```typescript
 geodesicSphere({ radius: 5, frequency: 6 })
 ```
 
@@ -126,7 +163,7 @@ Options: `{ radius?: number, frequency?: number }`
 
 3D ellipsoid with independent radii per axis.
 
-```js
+```typescript
 ellipsoid({ radius: [5, 10, 3] })     // egg-like squashed shape
 ```
 
@@ -134,7 +171,7 @@ Options: `{ center?: [x,y,z], radius?: [rx,ry,rz], segments?: number, axes?: [x,
 
 ### cylinder
 
-```js
+```typescript
 cylinder({ height: 10, radius: 3 })
 cylinder({ height: 20, radius: 5, segments: 6 })   // hexagonal prism
 cylinder({ height: 10, radius: 3, center: [0, 0, 5] })  // bottom at z=0
@@ -146,7 +183,7 @@ Options: `{ center?: [x,y,z], height?: number, radius?: number, segments?: numbe
 
 Cylinder with different elliptical cross-sections at top and bottom. Use for cones and tapered shapes.
 
-```js
+```typescript
 // Cone (tapers to near-point)
 cylinderElliptic({ height: 10, startRadius: [5, 5], endRadius: [0.01, 0.01] })
 
@@ -169,7 +206,7 @@ Options: `{ center?, height?, startRadius?: [rx,ry], endRadius?: [rx,ry], startA
 
 Box with rounded edges and corners.
 
-```js
+```typescript
 roundedCuboid({ size: [10, 10, 5], roundRadius: 1, segments: 32 })
 ```
 
@@ -179,7 +216,7 @@ Options: `{ center?, size?: [x,y,z], roundRadius?: number, segments?: number }`
 
 Cylinder with rounded (hemispherical) caps.
 
-```js
+```typescript
 roundedCylinder({ height: 10, radius: 3, roundRadius: 1, segments: 32 })
 ```
 
@@ -189,7 +226,7 @@ Options: `{ center?, height?, radius?, roundRadius?, segments? }`
 
 Donut shape. `innerRadius` = tube radius, `outerRadius` = center-to-tube-center distance.
 
-```js
+```typescript
 torus({ innerRadius: 1, outerRadius: 5 })
 torus({
   innerRadius: 2, outerRadius: 8,
@@ -204,7 +241,7 @@ Options: `{ innerRadius?, outerRadius?, innerSegments?, outerSegments?, innerRot
 
 Arbitrary 3D solid from vertices and face indices. Face vertices must be ordered consistently (default outward-facing CCW).
 
-```js
+```typescript
 // Tetrahedron
 polyhedron({
   points: [[0,0,0], [10,0,0], [5,10,0], [5,5,10]],
@@ -230,7 +267,7 @@ Options: `{ points: Vec3[], faces: number[][], colors?: (RGB|RGBA)[], orientatio
 
 Filled 2D disc. Use startAngle/endAngle for pie slices.
 
-```js
+```typescript
 circle({ radius: 5 })
 circle({ radius: 10, segments: 64 })
 circle({ radius: 5, startAngle: 0, endAngle: Math.PI })  // half disc
@@ -242,7 +279,7 @@ Options: `{ center?: [x,y], radius?, startAngle?, endAngle?, segments? }`
 
 2D ellipse with different radii.
 
-```js
+```typescript
 ellipse({ radius: [10, 5] })
 ```
 
@@ -252,7 +289,7 @@ Options: `{ center?: [x,y], radius?: [rx,ry], startAngle?, endAngle?, segments? 
 
 Equal-sided 2D rectangle.
 
-```js
+```typescript
 square({ size: 10 })
 ```
 
@@ -260,7 +297,7 @@ Options: `{ center?: [x,y], size?: number }`
 
 ### rectangle
 
-```js
+```typescript
 rectangle({ size: [20, 10] })
 rectangle({ size: [5, 5], center: [10, 0] })
 ```
@@ -269,7 +306,7 @@ Options: `{ center?: [x,y], size?: [w,h] }`
 
 ### roundedRectangle
 
-```js
+```typescript
 roundedRectangle({ size: [20, 10], roundRadius: 2, segments: 16 })
 ```
 
@@ -279,7 +316,7 @@ Options: `{ center?: [x,y], size?: [w,h], roundRadius?, segments? }`
 
 Arbitrary 2D polygon from points. Supports holes via nested point arrays + paths.
 
-```js
+```typescript
 // Simple polygon
 polygon({ points: [[0,0], [10,0], [10,10], [5,12], [0,10]] })
 
@@ -309,7 +346,7 @@ Options: `{ points: Vec2[] | Vec2[][], paths?: number[] | number[][], orientatio
 
 Create by specifying angle/side combinations.
 
-```js
+```typescript
 triangle({ type: 'SSS', values: [3, 4, 5] })            // right triangle
 triangle({ type: 'SAS', values: [5, Math.PI / 3, 5] })   // equilateral-ish
 ```
@@ -318,7 +355,7 @@ Types: `'AAA'`, `'AAS'`, `'ASA'`, `'SAS'`, `'SSA'`, `'SSS'`
 
 ### star
 
-```js
+```typescript
 star({ vertices: 5, outerRadius: 10, innerRadius: 5 })
 star({ vertices: 8, outerRadius: 15, innerRadius: 7, startAngle: 0 })
 ```
@@ -333,7 +370,7 @@ Options: `{ center?, vertices?, density?, outerRadius?, innerRadius?, startAngle
 
 Open 2D path through given points.
 
-```js
+```typescript
 line([[0, 0], [5, 5], [10, 0]])
 line([[0, 0], [0, 5], [2, 8], [5, 9]])
 ```
@@ -342,7 +379,7 @@ line([[0, 0], [0, 5], [2, 8], [5, 9]])
 
 Circular arc as open 2D path.
 
-```js
+```typescript
 arc({ radius: 10, startAngle: 0, endAngle: Math.PI / 2, segments: 32 })
 arc({ radius: 5, endAngle: Math.PI, makeTangent: true })
 ```
@@ -357,7 +394,7 @@ All booleans work on both `Geom2` and `Geom3`. Accept variadic args or arrays.
 
 ### union — merge/add shapes
 
-```js
+```typescript
 union(cube(), sphere({ center: [1, 0, 0] }))
 union([partA, partB, partC])  // array form
 ```
@@ -366,7 +403,9 @@ union([partA, partB, partC])  // array form
 
 First argument minus all subsequent. **This is the primary way to create holes.**
 
-```js
+```typescript
+import { subtract, cuboid, cylinder } from 'rensei/modeling'
+
 // Drill a hole through a block
 subtract(
   cuboid({ size: [20, 20, 5] }),
@@ -380,7 +419,7 @@ subtract(plate, ...arrayOfHoles)
 
 ### intersect — keep only overlap
 
-```js
+```typescript
 intersect(
   cube({ size: 10 }),
   sphere({ radius: 7 })
@@ -391,7 +430,7 @@ intersect(
 
 Splits a geometry into separate unconnected solids. Returns `Geom3[]`.
 
-```js
+```typescript
 const pieces = scission(myComplexGeom)
 ```
 
@@ -403,7 +442,7 @@ All transforms are immutable. Accept single geometry or variadic/array. Every tr
 
 ### translate
 
-```js
+```typescript
 translate([10, 0, 5], myCube)
 translateX(10, myGeom)
 translateY(-5, myGeom)
@@ -417,7 +456,7 @@ translate([5, 0, 0], partA, partB, partC)
 
 Angles in **radians**. `[rx, ry, rz]` for compound rotation.
 
-```js
+```typescript
 rotate([0, 0, Math.PI / 4], myCube)           // 45 deg around Z
 rotateX(Math.PI / 2, myCylinder)               // 90 deg around X
 rotateY(Math.PI, myGeom)                       // 180 deg around Y
@@ -426,7 +465,7 @@ rotate([Math.PI / 6, Math.PI / 4, 0], geom)   // compound XY rotation
 
 ### scale
 
-```js
+```typescript
 scale([2, 1, 0.5], myCube)    // stretch X 2x, squash Z to half
 scaleX(3, myGeom)
 scaleY(0.5, myGeom)
@@ -436,7 +475,7 @@ scaleY(0.5, myGeom)
 
 Reflect across a plane. Shortcuts mirror across coordinate planes.
 
-```js
+```typescript
 mirrorX(myCube)                // reflect across YZ plane (flip X)
 mirrorY(myGeom)                // reflect across XZ plane (flip Y)
 mirrorZ(myGeom)                // reflect across XY plane (flip Z)
@@ -447,7 +486,7 @@ mirror({ origin: [0,0,0], normal: [1,1,0] }, geom)  // custom plane
 
 Center geometry on specified axes.
 
-```js
+```typescript
 center({ axes: [true, true, false] }, myGeom)   // center X and Y, leave Z
 centerX(myGeom)
 centerY(myGeom)
@@ -459,7 +498,7 @@ center({ axes: [true, true, true], relativeTo: [0, 0, 5] }, geom)
 
 Align geometry by min/max/center per axis.
 
-```js
+```typescript
 align({ modes: ['min', 'center', 'none'] }, myGeom)
 align({ modes: ['center', 'center', 'min'], relativeTo: [0, 0, 0] }, geom)
 ```
@@ -474,7 +513,9 @@ Modes: `'center'`, `'min'`, `'max'`, `'none'`
 
 Push a 2D shape straight up along Z axis. Optional twist.
 
-```js
+```typescript
+import { extrudeLinear, rectangle, circle, star, polygon, line } from 'rensei/modeling'
+
 // Simple box from rectangle
 extrudeLinear({ height: 10 }, rectangle({ size: [20, 10] }))
 
@@ -505,7 +546,9 @@ Spin a 2D shape around the Y axis (lathe operation). Creates solids of revolutio
 
 The 2D shape must be positioned at **X > 0** (right side of Y axis). It sweeps around Y.
 
-```js
+```typescript
+import { extrudeRotate, polygon, circle, star } from 'rensei/modeling'
+
 // Full 360-degree vase profile
 extrudeRotate(
   { segments: 64 },
@@ -531,7 +574,9 @@ Options: `{ angle?: number, startAngle?: number, overflow?: 'cap', segments?: nu
 
 Spiral/helix extrusion. Sweeps a 2D shape in a helix around Z axis. Perfect for springs and threads.
 
-```js
+```typescript
+import { extrudeHelical, circle } from 'rensei/modeling'
+
 // Spring
 extrudeHelical(
   { height: 20, pitch: 5, segmentsPerRotation: 32 },
@@ -551,7 +596,9 @@ Options: `{ angle?, startAngle?, pitch?, height?, endOffset?, segmentsPerRotatio
 
 Extrude a path or 2D shape outline with a rectangular cross-section (like adding a pipe/rail around a path).
 
-```js
+```typescript
+import { extrudeRectangular, line } from 'rensei/modeling'
+
 const path = line([[0, 0], [0, 5], [2, 8], [5, 9]])
 extrudeRectangular({ size: 1, height: 1 }, path)
 
@@ -565,10 +612,11 @@ Options: `{ size?, height?, corners?: 'edge'|'chamfer'|'round', segments? }`
 
 **The most powerful extrusion.** Define each cross-section slice programmatically via a callback. The callback receives `(progress, index, base)` where progress goes from 0 to 1, and must return a `slice`.
 
-```js
-const { extrudeFromSlices, slice } = jscad.extrusions
-const { mat4 } = jscad.maths
-const { geom2 } = jscad.geometries
+```typescript
+import {
+    extrudeFromSlices, slice, circle, rectangle,
+    mat4, geom2
+} from 'rensei/modeling'
 
 // Square-to-circle morph
 extrudeFromSlices({
@@ -615,9 +663,11 @@ extrudeFromSlices({
 
 Options: `{ numberOfSlices?, capStart?: boolean, capEnd?: boolean, close?: boolean, callback: (progress, index, base) => Slice }`
 
-**Slice utilities** (`jscad.extrusions.slice`):
+**Slice utilities** (`slice`):
 
-```js
+```typescript
+import { slice, mat4, geom2 } from 'rensei/modeling'
+
 slice.fromPoints(points3D)          // create slice from array of [x,y,z] points
 slice.fromSides(sides)              // create slice from geom2 sides: geom2.toSides(myGeom2)
 slice.transform(mat4, aSlice)       // apply 4x4 transformation matrix
@@ -630,7 +680,9 @@ slice.equals(sliceA, sliceB)        // compare
 
 Project 3D geometry onto a 2D plane. Returns `Geom2`. Useful for creating 2D profiles from 3D shapes.
 
-```js
+```typescript
+import { project } from 'rensei/modeling'
+
 const shadow = project({}, mySphere)    // project onto XY plane
 project({ axis: [0, 1, 0], origin: [0, 0, 0] }, myGeom)  // onto XZ plane
 ```
@@ -645,7 +697,9 @@ Options: `{ axis?: [x,y,z], origin?: [x,y,z] }`
 
 Convex hull — smallest convex shape enclosing all inputs. Like shrink-wrapping with a flat surface.
 
-```js
+```typescript
+import { hull, sphere, circle, translate, cuboid } from 'rensei/modeling'
+
 // Smooth bridge between two spheres
 hull(
   sphere({ radius: 3, center: [0, 0, 0] }),
@@ -672,7 +726,9 @@ hull(
 
 Hull each consecutive pair, then union. Creates a connected chain of convex segments — perfect for smooth connections and text rendering.
 
-```js
+```typescript
+import { hullChain, sphere } from 'rensei/modeling'
+
 // Snake-like tube through waypoints
 hullChain(
   sphere({ radius: 1, center: [0, 0, 0] }),
@@ -696,7 +752,9 @@ Grow or shrink geometry by a uniform distance. Works on `Path2`, `Geom2`, and `G
 - `delta < 0` → contract inward (**Geom2 only**)
 - `corners`: `'round'`, `'chamfer'`, `'edge'`
 
-```js
+```typescript
+import { expand, cuboid, cube, rectangle, line, extrudeLinear } from 'rensei/modeling'
+
 // Round all edges of a cuboid
 expand({ delta: 1, corners: 'round', segments: 32 }, cuboid({ size: [10, 8, 4] }))
 
@@ -722,7 +780,9 @@ Options: `{ delta?: number, corners?: 'round'|'chamfer'|'edge', segments?: numbe
 
 2D only — similar to expand but returns same geometry type. Positive grows, negative shrinks.
 
-```js
+```typescript
+import { offset, circle, rectangle } from 'rensei/modeling'
+
 offset({ delta: 2, corners: 'round', segments: 16 }, circle({ radius: 5 }))
 offset({ delta: -1, corners: 'chamfer' }, rectangle({ size: [10, 10] }))
 ```
@@ -737,7 +797,9 @@ Options: `{ delta?, corners?: 'edge'|'chamfer'|'round', segments? }`
 
 Apply RGBA color. Values 0 to 1. Alpha optional (defaults to 1). Returns a **new** object (immutable).
 
-```js
+```typescript
+import { colorize, cube, sphere, cylinder } from 'rensei/modeling'
+
 colorize([1, 0, 0], cube())              // red
 colorize([0, 0.5, 1, 0.7], sphere())     // semi-transparent blue
 colorize([0.2, 0.8, 0.2], cylinder())    // green
@@ -745,7 +807,9 @@ colorize([0.2, 0.8, 0.2], cylinder())    // green
 
 ### Color conversions
 
-```js
+```typescript
+import { colorize, colorNameToRgb, hexToRgb, hslToRgb, hsvToRgb, cube, sphere, cylinder } from 'rensei/modeling'
+
 colorize(colorNameToRgb('steelblue'), cube())     // CSS color name
 colorize(hexToRgb('#ff6600'), sphere())            // hex string
 colorize(hslToRgb([0.6, 1, 0.5]), cylinder())     // HSL → RGB
@@ -758,8 +822,10 @@ All CSS color names are supported via `colorNameToRgb`.
 
 To color different parts independently, apply `colorize` to each part **separately** and return them as an **array**. Each part keeps its own color.
 
-```js
-const main = () => {
+```typescript
+import { colorize, cuboid, cylinder, translate, subtract } from 'rensei/modeling'
+
+export function main() {
   const base = cuboid({ size: [20, 20, 5] })
   const post = translate([0, 0, 7.5], cylinder({ radius: 3, height: 10 }))
   const hole = translate([0, 0, 7.5], cylinder({ radius: 1.5, height: 11 }))
@@ -781,7 +847,13 @@ const main = () => {
 
 ## Measurements
 
-```js
+```typescript
+import {
+    cube, measureBoundingBox, measureDimensions, measureCenter,
+    measureCenterOfMass, measureVolume, measureArea, measureBoundingSphere,
+    measureAggregateBoundingBox, measureAggregateArea, measureAggregateVolume
+} from 'rensei/modeling'
+
 const box = cube({ size: 10 })
 
 measureBoundingBox(box)          // [[-5,-5,-5], [5,5,5]]
@@ -791,7 +863,6 @@ measureCenterOfMass(box)         // [0, 0, 0]
 measureVolume(box)               // 1000
 measureArea(box)                 // 600
 measureBoundingSphere(box)       // [[cx,cy,cz], radius]
-measureEpsilon(box)              // floating point tolerance
 
 // Aggregate — across arrays of geometries
 measureAggregateBoundingBox([partA, partB])
@@ -807,7 +878,9 @@ measureAggregateVolume([partA, partB])
 
 Clean up geometry before export. Can snap, simplify, and triangulate.
 
-```js
+```typescript
+import { generalize } from 'rensei/modeling'
+
 generalize({ snap: true, simplify: true, triangulate: true }, myGeom)
 ```
 
@@ -815,7 +888,9 @@ generalize({ snap: true, simplify: true, triangulate: true }, myGeom)
 
 Snap vertices to grid to fix floating-point precision issues after complex boolean operations.
 
-```js
+```typescript
+import { snap } from 'rensei/modeling'
+
 snap(myGeom)
 ```
 
@@ -823,7 +898,9 @@ snap(myGeom)
 
 Re-tessellate coplanar polygons. Useful after booleans that create co-planar faces.
 
-```js
+```typescript
+import { retessellate } from 'rensei/modeling'
+
 retessellate(myGeom)
 ```
 
@@ -831,8 +908,8 @@ retessellate(myGeom)
 
 ## Curves (Bezier)
 
-```js
-const { bezier } = jscad.curves
+```typescript
+import { bezier } from 'rensei/modeling'
 
 // Quadratic bezier (3 control points)
 const curve2D = bezier.create([[0, 0], [5, 10], [10, 0]])
@@ -856,13 +933,11 @@ bezier.arcLengthToT({}, curve3D)       // convert arc length to t parameter
 
 JSCAD text uses vector fonts — text is rendered as line segments, not filled shapes. You need to convert the segments into filled geometry using hull operations.
 
-```js
-const { vectorText } = jscad.text
-const { hullChain } = jscad.hulls
-const { union } = jscad.booleans
-const { extrudeLinear } = jscad.extrusions
-const { circle, sphere } = jscad.primitives
-const { translate } = jscad.transforms
+```typescript
+import {
+    vectorText, hullChain, union, extrudeLinear,
+    circle, sphere, translate
+} from 'rensei/modeling'
 
 // vectorText() returns arrays of line segment point-pairs
 const segments = vectorText({ input: 'Hello', height: 10 })
@@ -896,8 +971,8 @@ Options for vectorText: `{ xOffset?, yOffset?, height?, lineSpacing?, letterSpac
 
 Used primarily with `extrudeFromSlices` and `slice.transform`.
 
-```js
-const { mat4, vec2, vec3 } = jscad.maths
+```typescript
+import { mat4, vec3 } from 'rensei/modeling'
 
 // Create identity matrix
 mat4.create()
@@ -924,7 +999,7 @@ vec3.cross(vec3.create(), vecA, vecB)
 vec3.dot(vecA, vecB)
 
 // Degrees to radians helper
-const degToRad = (deg) => deg * Math.PI / 180
+const degToRad = (deg: number) => deg * Math.PI / 180
 ```
 
 ---
@@ -933,7 +1008,9 @@ const degToRad = (deg) => deg * Math.PI / 180
 
 ### Making Holes (subtract cylinders)
 
-```js
+```typescript
+import { cuboid, cylinder, cylinderElliptic, subtract, union } from 'rensei/modeling'
+
 // Single hole through a plate
 const plate = cuboid({ size: [30, 30, 3] })
 const hole = cylinder({ height: 10, radius: 3 })
@@ -955,7 +1032,9 @@ subtract(plate, union(shaft, countersink))
 
 ### Hollow Shell / Wall Thickness
 
-```js
+```typescript
+import { cube, cuboid, cylinder, subtract } from 'rensei/modeling'
+
 // Hollow box (2mm wall thickness)
 const outer = cube({ size: 20 })
 const inner = cube({ size: 16 })    // 2mm smaller on each side
@@ -976,7 +1055,9 @@ subtract(
 
 ### Rounded Edges
 
-```js
+```typescript
+import { roundedCuboid, roundedCylinder, expand, cuboid } from 'rensei/modeling'
+
 // Built-in rounded primitives
 roundedCuboid({ size: [20, 10, 5], roundRadius: 1, segments: 16 })
 roundedCylinder({ height: 10, radius: 3, roundRadius: 0.5, segments: 16 })
@@ -990,8 +1071,10 @@ expand({ delta: 1, corners: 'chamfer' }, cuboid({ size: [18, 8, 3] }))
 
 ### Screw Threads
 
-```js
-const threads = (innerR, outerR, length, segments) => {
+```typescript
+import { extrudeFromSlices, slice } from 'rensei/modeling'
+
+const threads = (innerR: number, outerR: number, length: number, segments: number) => {
   const pitch = 2
   const revolutions = length / pitch
   const numSlices = 12 * revolutions
@@ -1019,7 +1102,9 @@ const screwThreads = threads(4, 5.6, 32, 32)
 
 ### Nuts and Bolts
 
-```js
+```typescript
+import { cylinder, union, subtract, translate } from 'rensei/modeling'
+
 // Hex head (cylinder with 6 segments = hexagon)
 const hexHead = cylinder({ height: 8, radius: 10 * 1.1547, segments: 6, center: [0, 0, 4] })
 
@@ -1038,8 +1123,11 @@ const nut = subtract(
 
 ### Extrude Along Bezier Path (Tubes)
 
-```js
-const { bezier } = jscad.curves
+```typescript
+import {
+    bezier, circle, geom2,
+    extrudeFromSlices, slice, mat4
+} from 'rensei/modeling'
 
 const tubeCurve = bezier.create([[0,0,0], [5,10,5], [10,0,10], [15,5,15]])
 
@@ -1062,7 +1150,9 @@ const tube = extrudeFromSlices({
 
 ### Symmetry / Mirroring
 
-```js
+```typescript
+import { subtract, cuboid, cylinder, cube, sphere, union, mirrorX, mirrorY } from 'rensei/modeling'
+
 // Build one half, mirror + union for perfect symmetry
 const halfShape = subtract(
   cuboid({ size: [10, 20, 5] }),
@@ -1078,7 +1168,9 @@ const full = union(half, mirrorY(half))
 
 ### Circular Pattern Array
 
-```js
+```typescript
+import { cylinder, subtract } from 'rensei/modeling'
+
 const numHoles = 8
 const holeRadius = 2
 const patternRadius = 15
@@ -1098,7 +1190,9 @@ subtract(disc, ...holes)
 
 ### Linear Pattern Array
 
-```js
+```typescript
+import { cuboid, subtract } from 'rensei/modeling'
+
 const slots = Array.from({ length: 5 }, (_, i) =>
   cuboid({ size: [2, 10, 10], center: [-8 + i * 4, 0, 0] })
 )
@@ -1107,7 +1201,12 @@ subtract(cuboid({ size: [30, 15, 5] }), ...slots)
 
 ### Embossed / Engraved Text
 
-```js
+```typescript
+import {
+    cuboid, vectorText, circle, translate,
+    hullChain, union, extrudeLinear, subtract
+} from 'rensei/modeling'
+
 // Engrave text into a surface
 const surface = cuboid({ size: [50, 15, 3] })
 const textSegments = vectorText({ input: 'JSCAD', height: 8 })
@@ -1125,7 +1224,9 @@ const engraved = subtract(surface, positioned)       // cut into surface
 
 ### Lofting Between Profiles
 
-```js
+```typescript
+import { extrudeFromSlices, slice, circle, mat4, geom2 } from 'rensei/modeling'
+
 // Square at bottom → circle at top
 extrudeFromSlices({
   numberOfSlices: 30,
@@ -1146,7 +1247,9 @@ extrudeFromSlices({
 
 Define a profile polygon (right-side silhouette) and revolve it:
 
-```js
+```typescript
+import { polygon, extrudeRotate } from 'rensei/modeling'
+
 const profile = polygon({ points: [
   [0, 0], [3, 0], [3, 0.5], [0.5, 0.5],      // base
   [0.5, 5], [0.3, 5.5], [0.3, 8],             // stem
@@ -1159,7 +1262,9 @@ const glass = extrudeRotate({ segments: 64 }, profile)
 
 ### Snap-Fit Joints
 
-```js
+```typescript
+import { union, subtract, cuboid } from 'rensei/modeling'
+
 // Cantilever snap hook
 const hook = union(
   cuboid({ size: [2, 1, 10], center: [0, 0, 5] }),
@@ -1176,8 +1281,10 @@ const socket = subtract(
 
 ### Gear (Approximation)
 
-```js
-const gear = (teeth, mod, thickness) => {
+```typescript
+import { extrudeLinear, polygon } from 'rensei/modeling'
+
+const gear = (teeth: number, mod: number, thickness: number) => {
   const pitchR = mod * teeth / 2
   const outerR = pitchR + mod
   const innerR = pitchR - 1.25 * mod
@@ -1216,7 +1323,9 @@ Every wall, shell, and feature must have minimum physical thickness or the print
 | Resin (SLA/MSLA) | 0.3mm | 0.5mm+ |
 | SLS (nylon) | 0.7mm | 1.0mm+ |
 
-```js
+```typescript
+import { cylinder, subtract } from 'rensei/modeling'
+
 // BAD: 0.4mm wall — too thin for FDM
 const thinPipe = subtract(
   cylinder({ height: 20, radius: 5 }),
@@ -1238,7 +1347,9 @@ console.log(`Wall thickness: ${wallThickness}mm`)
 
 For hollow boxes, remember thickness applies to **every side**:
 
-```js
+```typescript
+import { cuboid, subtract, measureDimensions } from 'rensei/modeling'
+
 // 2mm walls on all sides of a box
 const wallT = 2
 const outer = [30, 20, 15]
@@ -1258,7 +1369,9 @@ console.log(`Outer: ${dims}`)  // [30, 20, 15]
 
 Models need a flat base sitting at Z=0 for proper bed adhesion. Use `align` to place the bottom on the build plate.
 
-```js
+```typescript
+import { align, translateZ, measureBoundingBox } from 'rensei/modeling'
+
 // Place bottom of any geometry at Z=0
 const onBed = align({ modes: ['center', 'center', 'min'], relativeTo: [0, 0, 0] }, myGeom)
 
@@ -1269,7 +1382,9 @@ const onBed2 = translateZ(-bbox[0][2], myGeom)  // shift bottom to Z=0
 
 Add a base flange to improve adhesion and reduce warping on large prints:
 
-```js
+```typescript
+import { cuboid, align, union } from 'rensei/modeling'
+
 // Add a 0.4mm chamfered brim around the base
 const part = cuboid({ size: [30, 20, 15] })
 const partOnBed = align({ modes: ['center', 'center', 'min'] }, part)
@@ -1297,7 +1412,9 @@ FDM printers can't print in mid-air. Any surface angled more than **45° from ve
 
 **Design self-supporting overhangs** using chamfers and tapers instead of sharp 90° ledges:
 
-```js
+```typescript
+import { cuboid, union, extrudeLinear, polygon, rotateX, translate } from 'rensei/modeling'
+
 // BAD: 90° overhang — sharp horizontal shelf needs supports
 const sharpShelf = union(
   cuboid({ size: [10, 10, 20], center: [0, 0, 10] }),   // column
@@ -1320,7 +1437,9 @@ const selfSupporting = union(column, shelf, translate([0, 0, 18], chamferBlock))
 
 **Tapered cylinders** are better than sharp overhangs:
 
-```js
+```typescript
+import { cylinder, cylinderElliptic, union } from 'rensei/modeling'
+
 // BAD: cylinder floating above a post — 90° overhang underneath
 const bad = union(
   cylinder({ height: 20, radius: 3, center: [0, 0, 10] }),
@@ -1340,7 +1459,9 @@ const good = union(post, taper, cap)
 
 Horizontal spans between two supports (bridges) work up to ~10mm on FDM without supports. Beyond that, add design features:
 
-```js
+```typescript
+import { cuboid, union } from 'rensei/modeling'
+
 // Short bridge — fine without supports (8mm span)
 const supports = union(
   cuboid({ size: [5, 5, 20], center: [-6.5, 0, 10] }),
@@ -1365,7 +1486,9 @@ const longBridge = union(supports, midSupport, bridge)
 | Press fit | 0.05–0.1mm | Bearings, permanent joints |
 | Threaded holes | +0.2mm to nominal | Bolts, screws |
 
-```js
+```typescript
+import { cuboid, cylinder, union, subtract } from 'rensei/modeling'
+
 // Male/female peg with clearance for sliding fit
 const pegRadius = 4
 const clearance = 0.3  // per side
@@ -1391,7 +1514,9 @@ const slot = cuboid({ size: [slotWidth + clearance * 2, slotDepth + clearance * 
 
 **Screw holes** — always print larger than nominal thread diameter:
 
-```js
+```typescript
+import { cylinder } from 'rensei/modeling'
+
 // M3 screw hole (nominal 3mm diameter)
 // Print at 3.4mm for easy threading
 const m3Hole = cylinder({ height: 20, radius: (3 + 0.4) / 2 })
@@ -1424,13 +1549,18 @@ Design rules:
 - **Snap-fit hooks** should flex along X/Y, not peel apart layers in Z
 - **Horizontal round holes** deform into ovals — use **teardrop** shapes for accuracy:
 
-```js
+```typescript
+import {
+    circle, polygon, union, rotateX,
+    extrudeLinear, cuboid, subtract, translate
+} from 'rensei/modeling'
+
 // Standard round hole — deforms when printed horizontally
 const roundHole = rotateX(Math.PI / 2, cylinder({ height: 20, radius: 3 }))
 
 // Teardrop hole — self-supporting, accurate diameter when printed horizontally
 // Flat bottom + 45° pointed top replaces the unsupported upper arc
-const teardropHole = (radius, depth) => {
+const teardropHole = (radius: number, depth: number) => {
   const bottom = circle({ radius })
   // Add a 45° diamond point at the top to avoid overhang
   const topPoint = polygon({
@@ -1452,7 +1582,9 @@ const withTeardrop = subtract(plate, translate([0, 0, 10], teardropHole(3, 12)))
 
 Hinges and ball joints that print fully assembled need generous clearance so layers don't fuse together.
 
-```js
+```typescript
+import { sphere, cylinder, union, subtract } from 'rensei/modeling'
+
 // Print-in-place ball and socket joint
 const ballR = 5
 const socketR = ballR + 0.4         // 0.4mm clearance all around
@@ -1472,7 +1604,7 @@ const opening = cylinder({ height: 20, radius: ballR * 0.6, center: [0, 0, 5] })
 const socket = subtract(socketOuter, socketCutout, opening)
 
 // Print-in-place hinge pin
-const hingePin = (pinR, clearance, length) => {
+const hingePin = (pinR: number, clearance: number, length: number) => {
   const pin = cylinder({ height: length, radius: pinR, segments: 32 })
   const housing = subtract(
     cylinder({ height: length, radius: pinR + clearance + 1.5, segments: 32 }),
@@ -1486,7 +1618,12 @@ const hingePin = (pinR, clearance, length) => {
 
 Use JSCAD's measurement functions to sanity-check your model before slicing.
 
-```js
+```typescript
+import {
+    measureBoundingBox, measureDimensions, measureVolume,
+    measureArea, generalize
+} from 'rensei/modeling'
+
 const model = myComplexAssembly()
 
 // Check overall size — does it fit your print bed?
@@ -1523,7 +1660,9 @@ Higher `segments` values create smoother curves but larger STL files. The slicer
 | Large visible arcs | 48–64 | Smooth finish |
 | Decorative/cosmetic | 64–128 | Only when surface quality matters |
 
-```js
+```typescript
+import { cylinder, sphere } from 'rensei/modeling'
+
 // Default segments (32) — good for most parts
 cylinder({ height: 10, radius: 5 })
 

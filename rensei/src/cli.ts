@@ -2,6 +2,7 @@
 
 import { goke } from 'goke'
 import { z } from 'zod'
+import path from 'node:path'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
@@ -11,8 +12,26 @@ const VALID_VIEWS = ['front', 'back', 'left', 'right', 'top', 'bottom', 'iso', '
 
 const cli = goke('rensei')
 
+/**
+ * Detect whether a file is a JSCAD script (.js/.ts) or an STL file.
+ * For JSCAD scripts, evaluate and convert to STL data first.
+ */
+async function resolveStlData(filePath: string): Promise<{ stlPath?: string; stlData?: Buffer }> {
+    const ext = path.extname(filePath).toLowerCase()
+    if (ext === '.stl') {
+        return { stlPath: filePath }
+    }
+    if (ext === '.js' || ext === '.ts' || ext === '.mjs' || ext === '.mts') {
+        const { jscadToStl } = await import('./jscad.ts')
+        const stlData = await jscadToStl(filePath)
+        return { stlData }
+    }
+    throw new Error(`Unsupported file type: ${ext}. Expected .stl, .js, or .ts`)
+}
+
+// --- screenshot command ---
 cli
-    .command('<stl>', 'Render an STL file to PNG screenshots from configurable camera angles')
+    .command('screenshot <file>', 'Render an STL or JSCAD JS/TS file to PNG screenshots')
     .option(
         '--output <path>',
         z.string().default('output.png').describe('Output file path (or directory when --view all)'),
@@ -30,13 +49,15 @@ cli
     .option('--size [px]', z.number().default(1500).describe('Image width and height in pixels'))
     .option('--color [hex]', z.string().default('#8B9DAF').describe('Model color as hex'))
     .option('--background [hex]', z.string().default('#1a1a2e').describe('Background color as hex'))
-    .action(async (stl, options, { console, fs, process }) => {
-        // Dynamic import so context.ts polyfills load only when rendering
+    .action(async (file, options, { console, fs }) => {
         const { renderStl, renderAllViews, PRESET_VIEWS } = await import('./render.ts')
         type PresetView = keyof typeof PRESET_VIEWS
 
+        const { stlPath, stlData } = await resolveStlData(file)
+
         const baseOptions = {
-            stlPath: stl,
+            stlPath,
+            stlData,
             width: options.size,
             height: options.size,
             zoom: options.zoom,
@@ -45,11 +66,10 @@ cli
         }
 
         if (options.view === 'all') {
-            // Render all views to a directory
             const outDir = options.output.replace(/\.png$/i, '')
             await fs.mkdir(outDir, { recursive: true })
 
-            console.log(`Rendering all views of ${stl} to ${outDir}/`)
+            console.log(`Rendering all views of ${file} to ${outDir}/`)
             const results = await renderAllViews(baseOptions)
 
             for (const [name, pngBuffer] of results) {
@@ -60,23 +80,20 @@ cli
 
             console.log(`Done — ${results.size} images saved`)
         } else {
-            // Single view render
             let azimuth: number
             let elevation: number
 
             if (options.azimuth !== undefined || options.elevation !== undefined) {
-                // Manual angle overrides
                 azimuth = options.azimuth ?? 0
                 elevation = options.elevation ?? 0
             } else {
-                // Use preset view
                 const preset = PRESET_VIEWS[options.view as PresetView]
                 azimuth = preset.azimuth
                 elevation = preset.elevation
             }
 
             console.log(
-                `Rendering ${stl} — view: ${options.view}, azimuth: ${azimuth}°, elevation: ${elevation}°`,
+                `Rendering ${file} — view: ${options.view}, azimuth: ${azimuth}°, elevation: ${elevation}°`,
             )
 
             const pngBuffer = await renderStl({
@@ -88,6 +105,29 @@ cli
             await fs.writeFile(options.output, pngBuffer)
             console.log(`Saved ${options.output} (${(pngBuffer.length / 1024).toFixed(0)} KB)`)
         }
+    })
+
+// --- stl command ---
+cli
+    .command('stl <file>', 'Convert a JSCAD JS/TS file to binary STL')
+    .option(
+        '--output <path>',
+        z.string().describe('Output STL file path (default: same name with .stl extension)'),
+    )
+    .action(async (file, options, { console, fs }) => {
+        const { jscadToStl } = await import('./jscad.ts')
+
+        const ext = path.extname(file).toLowerCase()
+        if (ext === '.stl') {
+            throw new Error('Input is already an STL file. Use "rensei screenshot" to render it.')
+        }
+
+        const output = options.output || file.replace(/\.(js|ts|mjs|mts)$/i, '.stl')
+
+        console.log(`Converting ${file} to STL...`)
+        const stlBuffer = await jscadToStl(file)
+        await fs.writeFile(output, stlBuffer)
+        console.log(`Saved ${output} (${(stlBuffer.length / 1024).toFixed(0)} KB)`)
     })
 
 cli.help()
