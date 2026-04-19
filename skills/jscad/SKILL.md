@@ -1200,6 +1200,355 @@ const myGear = gear(20, 2, 5)
 
 ---
 
+## Designing for 3D Printing
+
+JSCAD's CSG operations **guarantee watertight meshes** — every `union`, `subtract`, `intersect` produces a valid closed solid by construction. The STL serializer also auto-applies `snap` + `triangulate` before export, removing degenerate polygons. So mesh validity is rarely an issue.
+
+The real challenges are **physical printability**: wall thickness, overhangs, tolerances, orientation, and bed adhesion. This section covers how to design JSCAD models that actually print well.
+
+### Wall Thickness
+
+Every wall, shell, and feature must have minimum physical thickness or the printer can't form it.
+
+| Technology | Minimum | Recommended |
+|---|---|---|
+| FDM (0.4mm nozzle) | 0.8mm (2 perimeters) | 1.2mm+ (3 perimeters) |
+| Resin (SLA/MSLA) | 0.3mm | 0.5mm+ |
+| SLS (nylon) | 0.7mm | 1.0mm+ |
+
+```js
+// BAD: 0.4mm wall — too thin for FDM
+const thinPipe = subtract(
+  cylinder({ height: 20, radius: 5 }),
+  cylinder({ height: 22, radius: 4.8 })  // 5 - 4.8 = 0.2mm wall
+)
+
+// GOOD: 1.2mm wall — solid on FDM
+const thickPipe = subtract(
+  cylinder({ height: 20, radius: 5 }),
+  cylinder({ height: 22, radius: 3.8 })  // 5 - 3.8 = 1.2mm wall
+)
+
+// Verify wall thickness programmatically
+const outerR = 5
+const innerR = 3.8
+const wallThickness = outerR - innerR  // 1.2mm ✓
+console.log(`Wall thickness: ${wallThickness}mm`)
+```
+
+For hollow boxes, remember thickness applies to **every side**:
+
+```js
+// 2mm walls on all sides of a box
+const wallT = 2
+const outer = [30, 20, 15]
+const inner = [outer[0] - wallT * 2, outer[1] - wallT * 2, outer[2] - wallT * 2]
+
+const hollowBox = subtract(
+  cuboid({ size: outer }),
+  cuboid({ size: inner })
+)
+
+// Verify with measurements
+const dims = measureDimensions(hollowBox)
+console.log(`Outer: ${dims}`)  // [30, 20, 15]
+```
+
+### Flat Bottom & Build Plate Contact
+
+Models need a flat base sitting at Z=0 for proper bed adhesion. Use `align` to place the bottom on the build plate.
+
+```js
+// Place bottom of any geometry at Z=0
+const onBed = align({ modes: ['center', 'center', 'min'], relativeTo: [0, 0, 0] }, myGeom)
+
+// Or use translateZ after measuring
+const bbox = measureBoundingBox(myGeom)
+const onBed2 = translateZ(-bbox[0][2], myGeom)  // shift bottom to Z=0
+```
+
+Add a base flange to improve adhesion and reduce warping on large prints:
+
+```js
+// Add a 0.4mm chamfered brim around the base
+const part = cuboid({ size: [30, 20, 15] })
+const partOnBed = align({ modes: ['center', 'center', 'min'] }, part)
+
+// Thin flange extending 3mm around the base footprint
+const flange = cuboid({ size: [36, 26, 0.4] })
+const flangeOnBed = align({ modes: ['center', 'center', 'min'] }, flange)
+
+const printReady = union(partOnBed, flangeOnBed)
+```
+
+### Overhangs & the 45° Rule
+
+FDM printers can't print in mid-air. Any surface angled more than **45° from vertical** (i.e., less than 45° from horizontal) needs support material or will print poorly.
+
+```
+       ╱ 0° overhang (vertical wall) — always fine
+      ╱
+     ╱  45° overhang — maximum self-supporting angle
+    ╱
+   ╱    60° overhang — needs support
+  ╱
+ ╱      90° overhang (horizontal ceiling) — needs support
+```
+
+**Design self-supporting overhangs** using chamfers and tapers instead of sharp 90° ledges:
+
+```js
+// BAD: 90° overhang — sharp horizontal shelf needs supports
+const sharpShelf = union(
+  cuboid({ size: [10, 10, 20], center: [0, 0, 10] }),   // column
+  cuboid({ size: [20, 10, 3], center: [5, 0, 21.5] })   // shelf sticking out
+)
+
+// GOOD: 45° chamfer transition — self-supporting
+const column = cuboid({ size: [10, 10, 20], center: [0, 0, 10] })
+const shelf = cuboid({ size: [20, 10, 3], center: [5, 0, 24.5] })
+// Triangular support under the shelf at 45°
+const chamfer = extrudeLinear(
+  { height: 10 },
+  polygon({ points: [[5, 0], [5, 5], [10, 5]] })
+)
+const chamferBlock = rotateX(Math.PI / 2,
+  translate([0, 5, 0], chamfer)
+)
+const selfSupporting = union(column, shelf, translate([0, 0, 18], chamferBlock))
+```
+
+**Tapered cylinders** are better than sharp overhangs:
+
+```js
+// BAD: cylinder floating above a post — 90° overhang underneath
+const bad = union(
+  cylinder({ height: 20, radius: 3, center: [0, 0, 10] }),
+  cylinder({ height: 5, radius: 8, center: [0, 0, 22.5] })
+)
+
+// GOOD: tapered transition at 45°
+const post = cylinder({ height: 20, radius: 3, center: [0, 0, 10] })
+const taper = cylinderElliptic({
+  height: 5, startRadius: [3, 3], endRadius: [8, 8], center: [0, 0, 22.5]
+})
+const cap = cylinder({ height: 5, radius: 8, center: [0, 0, 27.5] })
+const good = union(post, taper, cap)
+```
+
+### Bridging
+
+Horizontal spans between two supports (bridges) work up to ~10mm on FDM without supports. Beyond that, add design features:
+
+```js
+// Short bridge — fine without supports (8mm span)
+const supports = union(
+  cuboid({ size: [5, 5, 20], center: [-6.5, 0, 10] }),
+  cuboid({ size: [5, 5, 20], center: [6.5, 0, 10] })
+)
+const bridge = cuboid({ size: [18, 5, 2], center: [0, 0, 21] })
+const shortBridge = union(supports, bridge)  // 8mm unsupported span ✓
+
+// Long bridge — add a middle support column
+const midSupport = cuboid({ size: [3, 5, 20], center: [0, 0, 10] })
+const longBridge = union(supports, midSupport, bridge)
+```
+
+### Tolerances & Fit
+
+3D printers aren't perfectly precise. Parts expand slightly (FDM) or shrink slightly (resin). Add clearance for parts that fit together.
+
+| Fit Type | Gap per side | Use case |
+|---|---|---|
+| Loose / sliding | 0.3–0.5mm | Lids, sliding joints |
+| Snug | 0.15–0.25mm | Snap-fit, friction fit |
+| Press fit | 0.05–0.1mm | Bearings, permanent joints |
+| Threaded holes | +0.2mm to nominal | Bolts, screws |
+
+```js
+// Male/female peg with clearance for sliding fit
+const pegRadius = 4
+const clearance = 0.3  // per side
+
+// Male peg
+const peg = union(
+  cuboid({ size: [20, 20, 5] }),                                    // base plate
+  cylinder({ height: 10, radius: pegRadius, center: [0, 0, 10] })  // peg
+)
+
+// Female socket (hole is larger by clearance on each side)
+const socket = subtract(
+  cuboid({ size: [20, 20, 15], center: [0, 0, 7.5] }),
+  cylinder({ height: 12, radius: pegRadius + clearance, center: [0, 0, 10] })
+)
+
+// Rectangular slot with clearance
+const slotWidth = 10
+const slotDepth = 3
+const tab = cuboid({ size: [slotWidth, slotDepth, 5] })
+const slot = cuboid({ size: [slotWidth + clearance * 2, slotDepth + clearance * 2, 6] })
+```
+
+**Screw holes** — always print larger than nominal thread diameter:
+
+```js
+// M3 screw hole (nominal 3mm diameter)
+// Print at 3.4mm for easy threading
+const m3Hole = cylinder({ height: 20, radius: (3 + 0.4) / 2 })
+
+// M3 clearance hole (bolt passes through without threading)
+const m3Clearance = cylinder({ height: 20, radius: (3.4 + 0.4) / 2 })
+
+// Common FDM screw hole sizes
+const screwHoles = {
+  M2: { thread: 2.4, clearance: 2.6 },  // diameter in mm
+  M3: { thread: 3.4, clearance: 3.6 },
+  M4: { thread: 4.5, clearance: 4.8 },
+  M5: { thread: 5.5, clearance: 5.8 },
+}
+```
+
+### Print Orientation & Layer Strength
+
+FDM prints are **weakest along the Z axis** (layer adhesion). Layers bond thermally — they're never as strong as within a single layer.
+
+```
+Layer lines →  ════════  Strong in X/Y (within layer)
+               ════════
+               ════════  Weak in Z (between layers)
+               ════════
+```
+
+Design rules:
+- **Load-bearing features** should have layers perpendicular to the load
+- **Snap-fit hooks** should flex along X/Y, not peel apart layers in Z
+- **Horizontal round holes** deform into ovals — use **teardrop** shapes for accuracy:
+
+```js
+// Standard round hole — deforms when printed horizontally
+const roundHole = rotateX(Math.PI / 2, cylinder({ height: 20, radius: 3 }))
+
+// Teardrop hole — self-supporting, accurate diameter when printed horizontally
+// Flat bottom + 45° pointed top replaces the unsupported upper arc
+const teardropHole = (radius, depth) => {
+  const bottom = circle({ radius })
+  // Add a 45° diamond point at the top to avoid overhang
+  const topPoint = polygon({
+    points: [
+      [-radius, 0],
+      [0, radius],   // 45° point
+      [radius, 0]
+    ]
+  })
+  const profile = union(bottom, topPoint)
+  return rotateX(Math.PI / 2, extrudeLinear({ height: depth }, profile))
+}
+
+const plate = cuboid({ size: [30, 10, 20] })
+const withTeardrop = subtract(plate, translate([0, 0, 10], teardropHole(3, 12)))
+```
+
+### Print-in-Place Joints
+
+Hinges and ball joints that print fully assembled need generous clearance so layers don't fuse together.
+
+```js
+// Print-in-place ball and socket joint
+const ballR = 5
+const socketR = ballR + 0.4         // 0.4mm clearance all around
+const socketWall = 1.5
+
+// Ball on a stem
+const ball = union(
+  sphere({ radius: ballR, segments: 32 }),
+  cylinder({ height: 10, radius: 2, center: [0, 0, -7.5] })
+)
+
+// Socket — sphere cutout with entry slot for print-in-place
+const socketOuter = sphere({ radius: socketR + socketWall, segments: 32 })
+const socketCutout = sphere({ radius: socketR, segments: 32 })
+// Opening at top so the socket can be printed around the ball
+const opening = cylinder({ height: 20, radius: ballR * 0.6, center: [0, 0, 5] })
+const socket = subtract(socketOuter, socketCutout, opening)
+
+// Print-in-place hinge pin
+const hingePin = (pinR, clearance, length) => {
+  const pin = cylinder({ height: length, radius: pinR, segments: 32 })
+  const housing = subtract(
+    cylinder({ height: length, radius: pinR + clearance + 1.5, segments: 32 }),
+    cylinder({ height: length + 2, radius: pinR + clearance, segments: 32 })
+  )
+  return [pin, housing]  // print together
+}
+```
+
+### Verifying Before Export
+
+Use JSCAD's measurement functions to sanity-check your model before slicing.
+
+```js
+const model = myComplexAssembly()
+
+// Check overall size — does it fit your print bed?
+const bbox = measureBoundingBox(model)
+const dims = measureDimensions(model)
+console.log(`Size: ${dims[0].toFixed(1)} x ${dims[1].toFixed(1)} x ${dims[2].toFixed(1)} mm`)
+console.log(`Bounding box: [${bbox[0].map(v => v.toFixed(1))}] to [${bbox[1].map(v => v.toFixed(1))}]`)
+
+// Check volume — sanity check (should be > 0 for a valid solid)
+const vol = measureVolume(model)
+console.log(`Volume: ${vol.toFixed(1)} mm³`)
+if (vol <= 0) console.warn('WARNING: Zero or negative volume — geometry may be inside-out')
+
+// Check surface area
+const area = measureArea(model)
+console.log(`Surface area: ${area.toFixed(1)} mm²`)
+
+// Check bottom is at Z=0 for bed adhesion
+if (bbox[0][2] > 0.01) console.warn('WARNING: Model floating above Z=0 — use align() to place on bed')
+if (bbox[0][2] < -0.01) console.warn('WARNING: Model below Z=0 — bottom will be clipped')
+
+// Clean up geometry before export
+const cleaned = generalize({ snap: true, simplify: true, triangulate: true }, model)
+```
+
+### Segment Count vs File Size
+
+Higher `segments` values create smoother curves but larger STL files. The slicer re-slices anyway, so extremely high segments are wasted. Use the minimum that looks smooth enough.
+
+| Shape | Segments | Use case |
+|---|---|---|
+| Small holes (<5mm) | 16–24 | Barely visible facets |
+| Medium curves | 32 | Good default |
+| Large visible arcs | 48–64 | Smooth finish |
+| Decorative/cosmetic | 64–128 | Only when surface quality matters |
+
+```js
+// Default segments (32) — good for most parts
+cylinder({ height: 10, radius: 5 })
+
+// Low segments for small hidden holes (saves file size & boolean speed)
+const smallHole = cylinder({ height: 10, radius: 1.5, segments: 16 })
+
+// High segments only for large visible curves
+const smoothDome = sphere({ radius: 20, segments: 64 })
+```
+
+### Pre-Export Checklist
+
+| Check | How to verify | Fix |
+|---|---|---|
+| Wall thickness ≥ 0.8mm | Compute outer - inner dimensions | Increase inner offset |
+| Flat bottom at Z=0 | `measureBoundingBox()[0][2] === 0` | `align({ modes: ['center','center','min'] })` |
+| No floating parts | Ensure all parts are `union()`'d | `union(partA, partB, ...)` |
+| Volume > 0 | `measureVolume(model) > 0` | Check boolean order, normals |
+| Fits print bed | `measureDimensions()` < bed size | `scale()` down |
+| Reasonable file size | `segments` not excessive | Use 32 default, 16 for small features |
+| Clean mesh | Apply `generalize()` before export | `generalize({ snap: true, triangulate: true })` |
+| Oriented for strength | Load perpendicular to layer lines | Rotate model or redesign |
+
+---
+
 ## Quick Decision Table
 
 | Goal | Method |
