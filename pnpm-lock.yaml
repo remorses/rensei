@@ -21,7 +21,7 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@22.19.17)(tsx@4.21.0)
 
-  stl-screenshot:
+  rensei:
     dependencies:
       goke:
         specifier: ^6.8.0

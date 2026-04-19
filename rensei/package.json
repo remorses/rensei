@@ -1,5 +1,5 @@
 {
-  "name": "stl-screenshot",
+  "name": "rensei",
   "version": "0.0.1",
   "type": "module",
   "description": "Screenshot STL files from multiple angles using Three.js WebGPU in Node.js",

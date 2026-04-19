@@ -9,7 +9,7 @@ const packageJson = require('../package.json') as { version: string }
 
 const VALID_VIEWS = ['front', 'back', 'left', 'right', 'top', 'bottom', 'iso', 'all'] as const
 
-const cli = goke('stl-screenshot')
+const cli = goke('rensei')
 
 cli
     .command('<stl>', 'Render an STL file to PNG screenshots from configurable camera angles')
