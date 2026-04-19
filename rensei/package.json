@@ -1,6 +1,6 @@
 {
   "name": "rensei",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "type": "module",
   "description": "Screenshot STL files from multiple angles using Three.js WebGPU in Node.js",
   "bin": "dist/cli.js",
