@@ -1867,6 +1867,141 @@ Key principles:
 - **Skip decorative grooves** — they don't improve function and may weaken the print
 - **Uniform wall thickness** — simpler to print, easier to reason about strength
 
+### Spaghetti Failures — Sudden Cross-Section Expansion
+
+"Spaghetti" is when the printer extrudes filament into thin air and it falls instead of sticking. The most common cause is a **sudden large cross-section expansion** — a narrow base transitioning to a much wider surface with no support below it.
+
+```
+SPAGHETTI EXAMPLE — funnel printed narrow-end-down:
+
+  Z=28 ──── nozzle tip  Ø18mm  ← prints fine
+  Z=16 ──── nozzle base Ø32mm  ← prints fine
+  Z=8  ──── funnel WIDE Ø60mm  ← SPAGHETTI: each layer jumps 14mm outward
+                                   with nothing below to support it
+  Z=0  ──── bed
+```
+
+**The 45° rule applies to the expansion rate**, not just the angle. A flat shelf at 89° will fail. A conical expansion at 66° may work fine (see *Conical Overhangs Are More Forgiving*).
+
+**Fix strategies:**
+
+1. **Flip the model** — print wide-end-down so the wide base has bed contact and the narrow end builds up from it
+2. **Add a taper/chamfer** — replace 90° ledges with ≤45° slopes
+3. **Use supports** — only as a last resort; design them out when possible
+
+```typescript
+// BAD: wide disc printed narrow-end-down → spaghetti at the funnel transition
+// GOOD: flip so the wide mounting cylinder sits flat on the bed, nozzle points up
+const flipped = mirrorZ(body)   // flip orientation
+return align({ modes: ['center', 'center', 'min'] }, flipped)
+
+// Or just build the profile in the correct direction from the start:
+// bed (Y=0) = wide end, top (Y=max) = narrow nozzle
+```
+
+### Choosing Print Orientation
+
+Orientation is the single most impactful decision for printability. Ask these questions in order:
+
+**1. What's the largest flat surface?** → Put it on the bed. Large flat bottom = best adhesion, no warping.
+
+**2. Where are the overhangs?** → Overhangs should face upward (away from the bed), never downward into thin air.
+
+**3. What are the load directions?** → FDM is weakest in Z (between layers). Orient so forces act within XY layers, not across them.
+
+**4. Are there internal features?** → Every internal feature must build upward from the bed, not hang from the ceiling.
+
+```
+ORIENTATION DECISION TREE:
+
+  Does it have a large flat face?
+  ├─ YES → Put that face on the bed (ideal)
+  └─ NO  → Find the face with best area coverage
+
+  Are there steep overhangs (>45°)?
+  ├─ NO  → Current orientation is probably fine
+  └─ YES → Can you flip/rotate to eliminate them?
+           ├─ YES → Do it (flip the model)
+           └─ NO  → You'll need supports
+
+  Are there internal features (filter stubs, bosses, ribs)?
+  ├─ Connect to BED or build from floor up → printable ✓
+  └─ Hang from ceiling or start mid-air → cantilever, needs supports or redesign
+
+  Will it be under load?
+  └─ Orient so load is parallel to layer lines, not peeling layers apart
+```
+
+**For cylindrical parts** (funnels, pipes, nozzles): always print with the cylinder axis **vertical** (along Z). This puts hoop stress within the strong XY plane. Printing sideways puts hoop stress across layers → delamination under pressure.
+
+### extrudeRotate Profile Polygon — Avoid Self-Intersection
+
+`extrudeRotate` revolves a 2D cross-section profile around the Y axis. If the profile polygon **self-intersects**, it creates two disconnected bodies instead of one — the slicer will flag parts as floating even though the JSCAD geometry looks correct.
+
+**The most common cause**: outer and inner funnel slopes traced in antiparallel directions so they cross each other.
+
+```
+WRONG — outer and inner slopes cross (antiparallel):
+  outer: (30,8) → (12,16)   ↘  direction: (-18, +8)
+  inner: (11.5,16) → (28,8)  ↗  direction: (+16.5, -8)
+  These lines INTERSECT at ~(20, 12) → two disconnected bodies!
+
+RIGHT — outer and inner slopes are parallel (same direction):
+  outer: (30,8) → (16,16)   direction: (-14, +8)
+  inner: (14,16) → (28,8)   direction: (+14, -8) ← ANTIPARALLEL but...
+  Check: t+s equations give 8/7 ≠ 1 → NO intersection ✓
+```
+
+To verify: parametrize both segments as `A + t*(B-A)` and `C + s*(D-C)`, set equal, solve for `t` and `s`. If both are in `[0,1]` they intersect. If the system has no solution or requires `t` or `s` outside `[0,1]`, they don't.
+
+**Also watch for overlapping horizontal segments** at the same Y level. If two floor segments at the same height share an X range, the polygon is degenerate. Keep floor segments at the same Y in non-overlapping X ranges.
+
+**Sizing rule**: if a feature (like a filter cylinder) sits inside a funnel, it must fit inside the funnel inner wall:
+```
+filterOuterRadius < nozzleBaseRadius - wall
+```
+If not, increase `nozzleBaseRadius` until it fits, or reduce the feature size.
+
+### Auto Support Generation in the Slicer
+
+Even with good model design you sometimes need supports. Understanding how slicers generate them helps you control the result.
+
+**How Bambu Studio auto-detects support regions:**
+1. It analyzes each layer and finds surfaces with no layer below them
+2. Any surface exceeding the **threshold angle** (default 45°) gets flagged
+3. Support structures are generated below those regions
+
+**Key support settings (Bambu Studio):**
+
+| Setting | What it does | Recommendation |
+|---|---|---|
+| **Support type** | Normal (dense) or Tree (branching) | Tree: less material, easier to remove |
+| **Threshold angle** | Below this, no support generated | 45° default; raise to 50–55° for less support |
+| **On build plate only** | Supports only from the bed, never touching the model | Enable — prevents surface scarring |
+| **Top Z distance** | Gap between support top and model | 0.2mm default; increase to 0.25mm for easier removal |
+| **XY distance** | Gap between support and model sides | 0.35mm; increase if supports fuse to part |
+| **Interface layers** | Smooth top layer of the support | 2 layers; improves surface above support |
+
+**When supports are unavoidable vs when to redesign:**
+
+```
+USE SUPPORTS when:
+  - The overhang is a small feature (<10mm) that can't be redesigned
+  - The part is complex and redesigning takes longer than removing supports
+  - You're using soluble support material (dual extruder)
+
+REDESIGN INSTEAD when:
+  - A simple flip/rotate eliminates the overhang
+  - The overhang is large (>20mm) → supports will leave bad surface finish
+  - The part is functional/sealing (supports leave rough surfaces that leak or bind)
+  - Internal supports are impossible to remove
+```
+
+**The "floating cantilever" warning** in Bambu Studio means a feature is geometrically connected to the rest of the model but builds mid-air in the chosen orientation. This is different from a slicer overhang — it's a structural topology issue. Fix by:
+- Flipping the model (most common fix)
+- Connecting the feature to the bed via the model geometry
+- Checking for self-intersecting profile polygons in `extrudeRotate` models (they produce disconnected bodies that look connected in 3D preview but aren't)
+
 ### Internal Features Must Print Bottom-Up
 
 Even if your model is geometrically one solid piece, the slicer builds it layer-by-layer from Z=0 upward. Any feature inside a cavity that starts mid-air will be flagged as a "floating cantilever."
@@ -1898,6 +2033,9 @@ Rules:
 | Flat bottom at Z=0 | `measureBoundingBox()[0][2] === 0` | `align({ modes: ['center','center','min'] })` |
 | No floating parts | Ensure all parts are `union()`'d | `union(partA, partB, ...)` |
 | No internal cantilevers | Every internal feature builds from floor up | Flip orientation or redesign |
+| No self-intersecting profile | Check `extrudeRotate` slopes are non-crossing | Verify parametric intersection test |
+| Feature sizing consistent | `filterRadius < nozzleInner - wall` | Increase nozzle radius or shrink feature |
+| Spaghetti risk checked | No sudden large cross-section expansion | Flip model or add taper |
 | Volume > 0 | `measureVolume(model) > 0` | Check boolean order, normals |
 | Fits print bed | `measureDimensions()` < bed size | `scale()` down |
 | Reasonable file size | `segments` not excessive | Use 32 default, 16 for small features |
