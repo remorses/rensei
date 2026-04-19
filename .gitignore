@@ -27,5 +27,7 @@ Thumbs.db
 
 # Ignore npm package lock files
 package-lock.json
-*.png
 tmp
+
+# Ignore rendered views (but keep docs/ images)
+views/
