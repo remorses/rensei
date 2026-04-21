@@ -44,8 +44,8 @@
 3. **`rensei screenshot` now accepts JSCAD scripts** — render `.ts`/`.js` scripts directly to PNG without intermediate STL export:
 
    ```bash
-   # Render a JSCAD script from all angles
-   rensei screenshot model.ts --view all --output ./views/
+   # Render a JSCAD script from all angles into one grid image
+   rensei screenshot model.ts --view all --output views.png
 
    # Render a single custom view
    rensei screenshot model.ts --azimuth 45 --elevation 30 --output render.png

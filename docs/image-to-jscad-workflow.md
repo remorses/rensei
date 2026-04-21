@@ -95,12 +95,12 @@ If the render is ambiguous, compare the reference and model in the same named vi
 
 ```bash
 # 1. write the model
-rensei screenshot model.ts --view all --output ./views/
+rensei screenshot model.ts --view all --output views.png
 
 # 2. inspect all orthographic views
 
 # 3. change the code
-rensei screenshot model.ts --view all --output ./views/
+rensei screenshot model.ts --view all --output views.png
 
 # 4. repeat until the spec and renders agree
 ```

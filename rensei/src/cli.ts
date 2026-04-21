@@ -45,7 +45,7 @@ async function resolveStlData(filePath: string): Promise<{ stlPath?: string; stl
 
 // --- screenshot command ---
 cli
-    .command('screenshot <file>', 'Render an STL or JSCAD JS/TS file to PNG screenshots')
+    .command('screenshot <file>', 'Render an STL or JSCAD JS/TS file to a PNG image; multiple views are composed into one grid')
     .option(
         '--output <path>',
         z.string().default('output.png').describe('Output PNG file path'),

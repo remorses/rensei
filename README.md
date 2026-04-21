@@ -22,7 +22,7 @@ rensei enables AI agents to generate 3D models via an iterative feedback loop:
 1. **Decompose** the reference into a short spec: overview, envelope, feature tree, uncertainties
 2. **Confirm** ambiguous features with the user before writing code
 3. **Write** a JSCAD `.ts` script using `rensei/modeling` exports
-4. **Screenshot** with `rensei screenshot model.ts --view all --output ./views/`
+4. **Screenshot** with `rensei screenshot model.ts --view all --output views.png`
 5. **Review** silhouette, proportions, feature count, polarity, symmetry, and printability
 6. **Update** the `.ts` script to fix shape/dimension differences
 7. **Repeat** until model matches from all orthogonal views (front, back, left, right, top, bottom, iso)
@@ -61,8 +61,8 @@ Source: [`examples/src/mounting-plate.ts`](examples/src/mounting-plate.ts)
 ## CLI Commands
 
 ```bash
-# Screenshot a JSCAD script from all angles
-rensei screenshot model.ts --view all --output ./views/
+# Screenshot a JSCAD script from all angles into one grid image
+rensei screenshot model.ts --view all --output views.png
 
 # Screenshot a single view
 rensei screenshot model.ts --view iso --output render.png
@@ -76,6 +76,8 @@ rensei stl model.ts --output model.stl
 # Screenshot an existing STL file
 rensei screenshot model.stl --view front --output front.png
 ```
+
+`--output` is always a single PNG path. When you request multiple views, rensei composes them into one grid image.
 
 Options: `--size` (default 1500), `--zoom`, `--color`, `--background`
 
