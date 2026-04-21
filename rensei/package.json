@@ -38,11 +38,12 @@
     "src",
     "dist",
     "README.md",
+    "docs",
     "skills"
   ],
   "scripts": {
     "build": "tsc && chmod +x dist/cli.js",
-    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" README.md skills && node --input-type=module -e \"import { cp, mkdir } from 'node:fs/promises'; await mkdir('skills/rensei', { recursive: true }); await cp('../README.md', 'README.md'); await cp('../skills/rensei/SKILL.md', 'skills/rensei/SKILL.md');\" && pnpm build",
+    "prepublishOnly": "rimraf dist \"*.tsbuildinfo\" README.md docs skills && node --input-type=module -e \"import { cp, mkdir } from 'node:fs/promises'; await mkdir('skills/rensei', { recursive: true }); await mkdir('docs', { recursive: true }); await cp('../README.md', 'README.md'); await cp('../docs/image-to-jscad-workflow.md', 'docs/image-to-jscad-workflow.md'); await cp('../skills/rensei/SKILL.md', 'skills/rensei/SKILL.md');\" && pnpm build",
     "test": "vitest"
   },
   "keywords": [

@@ -19,12 +19,17 @@ npx -y skills add remorses/rensei
 
 rensei enables AI agents to generate 3D models via an iterative feedback loop:
 
-1. **Analyze** user reference images (photos, sketches, descriptions)
-2. **Write** a JSCAD `.ts` script using `rensei/modeling` exports
-3. **Screenshot** with `rensei screenshot model.ts --view all --output ./views/`
-4. **Compare** rendered views against the reference from every angle
-5. **Update** the `.ts` script to fix shape/dimension differences
-6. **Repeat** until model matches from all orthogonal views (front, back, left, right, top, bottom, iso)
+1. **Decompose** the reference into a short spec: overview, envelope, feature tree, uncertainties
+2. **Confirm** ambiguous features with the user before writing code
+3. **Write** a JSCAD `.ts` script using `rensei/modeling` exports
+4. **Screenshot** with `rensei screenshot model.ts --view all --output ./views/`
+5. **Review** silhouette, proportions, feature count, polarity, symmetry, and printability
+6. **Update** the `.ts` script to fix shape/dimension differences
+7. **Repeat** until model matches from all orthogonal views (front, back, left, right, top, bottom, iso)
+
+The key idea is simple: **spec first, geometry second**. Most bad CAD generations come from misreading the reference, not from weak JSCAD operations.
+
+See [docs/image-to-jscad-workflow.md](docs/image-to-jscad-workflow.md) for the full workflow.
 
 ## Example: Water Filter Funnel (from reference photos)
 
@@ -41,6 +46,17 @@ This model was built entirely by an AI agent using the iterative screenshot work
 ![Water filter funnel — top, iso, front, nozzle, bottom views](docs/water-filter-strip.png)
 
 Source: [`examples/src/water-filter.ts`](examples/src/water-filter.ts)
+
+## Example: Mounting Plate (from a confirmed feature tree)
+
+This example shows the same agent workflow adapted to JSCAD. Instead of copying a feature CAD tree literally, it turns the confirmed spec into a few clear boolean steps:
+
+1. Build the **base plate** from a rounded rectangle and `extrudeLinear`
+2. Subtract a **center pocket** as another rounded rectangle extrusion
+3. Subtract **four corner holes** from an array of circles
+4. Add **standoffs** as cylinders positioned from the same named dimensions
+
+Source: [`examples/src/mounting-plate.ts`](examples/src/mounting-plate.ts)
 
 ## CLI Commands
 
@@ -87,7 +103,7 @@ There are **3 geometry types** that flow through the entire API:
 - **`Geom2`** — closed 2D shape with area (filled polygon). Created by `circle()`, `rectangle()`, `polygon()`, etc.
 - **`Geom3`** — 3D solid mesh. Created by `cube()`, `sphere()`, `cylinder()`, or by extruding 2D shapes.
 
-The general workflow: **create primitives → transform → combine with booleans → export**.
+The general workflow: **write a spec → map features to primitives → transform → combine with booleans → render → iterate → export**.
 
 Every JSCAD file exports a `main()` function that returns geometry or an array of geometries:
 

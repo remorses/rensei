@@ -42,6 +42,47 @@ curl -s https://raw.githubusercontent.com/remorses/rensei/main/README.md # NEVER
 
 ## Critical rules for printable models
 
+## Spec-first workflow for references
+
+If the user provides **photos, drawings, screenshots, or sketches**, do not start by writing JSCAD.
+
+First produce a short structured spec:
+
+1. **Overview** — what is the object, in one sentence
+2. **Envelope** — overall dimensions if known
+3. **Feature tree** — base shape, holes, pockets, ribs, bosses, threads, repeats
+4. **Uncertainties** — what is still ambiguous
+
+Then ask the user to confirm or correct the spec before you code.
+
+This matters because the biggest failure mode is usually **misreading the image**, not misusing JSCAD. A corrected spec saves many more turns than a late geometry fix.
+
+### Mapping the spec to JSCAD
+
+When converting the confirmed spec to code, prefer the smallest JSCAD pattern that matches the intended shape:
+
+- plate / flange / bracket base → `roundedRectangle()` or `rectangle()` + `extrudeLinear()`
+- round holes → `circle()` + `extrudeLinear()` + `subtract()`
+- pockets / recesses → 2D profile + `extrudeLinear()` + `subtract()`
+- rotational parts → `polygon()` + `extrudeRotate()`
+- repeated features → array of positions + `map()` + `union()` / `subtract()`
+- mirrored features → model one side then `mirrorX()` / `mirrorY()` + `union()`
+
+Do not try to imitate a feature CAD tree exactly. `rensei` is code-first. Use parameters, arrays, and derived dimensions instead.
+
+### Render review protocol
+
+After each meaningful change, render again and explicitly check:
+
+1. **Silhouette** — does the outline match the reference view?
+2. **Proportions** — width, height, thickness, taper
+3. **Feature count** — all holes, ribs, slots, bosses present
+4. **Polarity** — additive vs subtractive features correct
+5. **Symmetry** — mirrored features actually line up
+6. **Printability** — thin walls, floating details, bad orientation
+
+If the render still looks wrong, say what you expected to see and what is actually different before changing the code again. This keeps the iteration loop grounded.
+
 ### extrudeRotate profile must not self-intersect
 
 When building profiles for `extrudeRotate`, outer and inner funnel slopes must NOT cross each other. Antiparallel slopes that trace in opposite directions will intersect, creating disconnected bodies — the slicer flags parts as "floating cantilever" even though geometry looks solid.
