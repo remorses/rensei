@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.3.0
+
+1. **`--view` flag is now repeatable** — compose multiple preset views into a single PNG grid:
+
+   ```bash
+   # Front and top views side by side
+   rensei screenshot model.ts --view front --view top --output combined.png
+
+   # Any combination of presets
+   rensei screenshot model.ts --view front --view left --view top --output ortho.png
+   ```
+
+   The grid size adapts automatically: 2 views → 2×1, 3–4 views → 2×2, 5–9 views → 3×3.
+
+2. **`--view all` now outputs a single grid image** — previously it wrote separate PNG files to a directory. Now it composes all 8 preset views into one image:
+
+   ```bash
+   # Before (0.2.x): wrote ./views/front.png, ./views/back.png, etc.
+   # After (0.3.0): writes one grid PNG
+   rensei screenshot model.ts --view all --output views.png
+   ```
+
+3. **New `renderViewGrid` API** — render selected views into a single grid programmatically:
+
+   ```ts
+   import { renderViewGrid } from 'rensei'
+
+   const png = await renderViewGrid({
+     stlPath: 'model.stl',
+     views: ['front', 'top', 'iso'],
+     width: 1200,
+     height: 1200,
+   })
+   ```
+
+4. **New `computeSquareGridSize` export** — compute the smallest square grid that fits N items:
+
+   ```ts
+   import { computeSquareGridSize } from 'rensei'
+   computeSquareGridSize(5) // → 3 (3×3 grid with 4 empty cells)
+   ```
+
+5. **Published package includes docs/** — the image-to-JSCAD workflow guide (`docs/image-to-jscad-workflow.md`) is now in the npm tarball alongside the README and skill file.
+
 ## 0.2.1
 
 1. **Fixed `npx rensei` for TypeScript JSCAD scripts** — the published package now includes the runtime `tsx` dependency required by `rensei stl`, `rensei screenshot`, and `rensei weight` when they import `.ts` model files from npm installs.
