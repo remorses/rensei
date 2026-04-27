@@ -1,5 +1,5 @@
 // Water filter funnel — simplified thin-walled for 3D printing
-// Conical funnel with mounting cylinder at wide end (threads to be engraved),
+// Conical funnel with mounting cylinder at wide end (modeled inner threads),
 // internal filter attachment cylinder, and nozzle at narrow end.
 //
 // Print orientation: mounting cylinder DOWN (flat on bed), nozzle UP.
@@ -20,12 +20,12 @@
 //
 // Cross-section profile (right half, X=radius, Y=height from bed):
 //
-//   Y=28  ─── 7 ═══ 9 ─────────────────  nozzle tip
+//   Y=36  ─── 7 ═══ 9 ─────────────────  nozzle tip
 //             │     │
-//   Y=16  ─── 7─9.5─11.5─14 ════════ 16  funnel floor + nozzle base
+//   Y=24  ─── 7─9.5─11.5─16 ════════ 18  funnel floor + nozzle base
 //                   │   │         ╲
 //                   │   │          ╲ funnel
-//   Y=8   ──────────│───│───────── 28 ══ 30  cylinder top
+//   Y=16  ──────────│───│───────── 28 ══ 30  cylinder top + inner thread end
 //                   │   │           │    │
 //   Y=0   ── 9.5 ══ 11.5 ─────── 28 ════ 30  bed (filter ring + cylinder ring)
 
@@ -33,8 +33,9 @@
 // doesn't resolve @jscad/modeling properties. Using direct import for now.
 import jscad from '@jscad/modeling'
 const { polygon } = jscad.primitives
-const { align } = jscad.transforms
+const { align, translate } = jscad.transforms
 const extrudeRotate = jscad.extrusions.extrudeRotate
+const extrudeHelical = jscad.extrusions.extrudeHelical
 
 export function main() {
     const wall = 2
@@ -50,7 +51,7 @@ export function main() {
     const cylinderInnerRadius = 28
     const cylinderWall = 2
     const cylinderOuterRadius = cylinderInnerRadius + cylinderWall // 30mm
-    const cylinderHeight = 8
+    const cylinderHeight = 16
 
     // Filter attachment cylinder: 24mm INNER ⌀, 2mm wall
     // Only a short lip should be visible inside the bowl.
@@ -59,15 +60,25 @@ export function main() {
 
     // Heights (Y=0 = bed, Y increases toward nozzle tip)
     const bedY = 0
-    const funnelTop = cylinderHeight               // Y=8: funnel-cylinder junction
-    const funnelBottom = funnelTop + 8             // Y=16: funnel narrow end / nozzle base
-    const nozzleTop = funnelBottom + nozzleLength  // Y=28: nozzle tip
+    const funnelTop = cylinderHeight               // Y=16: funnel-cylinder junction
+    const funnelBottom = funnelTop + 8             // Y=24: funnel narrow end / nozzle base
+    const nozzleTop = funnelBottom + nozzleLength  // Y=36: nozzle tip
     const funnelInnerBottom = nozzleBaseRadius - wall
     const filterTop = funnelBottom + 2             // only 2mm visible above bowl floor
 
+    // Internal mounting threads. These are temporary dimensions until the
+    // mating part is measured: three 1.5mm-wide, 1mm-deep helical starts inside the
+    // larger cylinder, lifted off the bed so the first layer stays simple.
+    const threadStarts = 3
+    const threadDepth = 1
+    const threadWallOverlap = 0.2
+    const threadProfileHeight = 1.5
+    const threadStartY = bedY + 1.5
+    const threadHeight = cylinderHeight - 3
+    const threadTurns = 1.25
+
     // Profile polygon — traced counterclockwise, NO self-intersections.
-    // Outer and inner funnel slopes are PARALLEL (same direction vector),
-    // verified: (30,8)→(16,16) and (14,16)→(28,8) have t+s=8/7 ≠ 1, never cross.
+    // Outer and inner funnel slopes are parallel in cross-section and never cross.
     const pts: [number, number][] = []
 
     // === OUTER SURFACE (bed → nozzle tip) ===
@@ -98,10 +109,32 @@ export function main() {
 
     // Close: [28,0]→[30,0] is implicit (back to first point)
 
-    const body = extrudeRotate({ segments: 64 }, polygon({ points: pts }))
+    const body = extrudeRotate({ segments: 96 }, polygon({ points: pts }))
+    const threadProfile = polygon({
+        points: [
+            [cylinderInnerRadius + threadWallOverlap, -threadProfileHeight / 2],
+            [cylinderInnerRadius - threadDepth, 0],
+            [cylinderInnerRadius + threadWallOverlap, threadProfileHeight / 2],
+        ],
+    })
+    const threads = Array.from({ length: threadStarts }, (_, index) => translate(
+        [0, 0, threadStartY],
+        extrudeHelical(
+            {
+                angle: Math.PI * 2 * threadTurns,
+                height: threadHeight,
+                startAngle: Math.PI * 2 * index / threadStarts,
+                segmentsPerRotation: 96,
+            },
+            threadProfile,
+        ),
+    ))
 
     return align(
-        { modes: ['center', 'center', 'min'], relativeTo: [0, 0, 0] },
+        // Keep threads as overlapping geometry. Boolean union can collapse this
+        // revolved shell when helical ribs overlap the inner wall.
+        { modes: ['center', 'center', 'min'], relativeTo: [0, 0, 0], grouped: true },
         body,
+        ...threads,
     )
 }
