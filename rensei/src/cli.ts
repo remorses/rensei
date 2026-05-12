@@ -10,9 +10,9 @@ const packageJson = require('../package.json') as { version: string }
 
 const PRESET_VIEW_NAMES = ['front', 'back', 'left', 'right', 'top', 'bottom', 'iso'] as const
 const VALID_VIEWS = [...PRESET_VIEW_NAMES, 'all'] as const
-type ViewOption = (typeof VALID_VIEWS)[number]
+type PresetView = (typeof PRESET_VIEW_NAMES)[number]
 
-function resolveRequestedViews(requestedViews: readonly ViewOption[]): (typeof PRESET_VIEW_NAMES)[number][] {
+function resolveRequestedViews(requestedViews: readonly (typeof VALID_VIEWS)[number][]): PresetView[] {
     if (requestedViews.includes('all')) {
         if (requestedViews.length > 1) {
             throw new Error('Cannot combine --view all with other --view values')
@@ -21,7 +21,7 @@ function resolveRequestedViews(requestedViews: readonly ViewOption[]): (typeof P
         return [...PRESET_VIEW_NAMES]
     }
 
-    return requestedViews as (typeof PRESET_VIEW_NAMES)[number][]
+    return requestedViews.filter((view): view is PresetView => view !== 'all')
 }
 
 const cli = goke('rensei')
@@ -65,7 +65,6 @@ cli
     .option('--background [hex]', z.string().default('#1a1a2e').describe('Background color as hex'))
     .action(async (file, options, { console, fs }) => {
         const { renderStl, renderViewGrid, PRESET_VIEWS } = await import('./render.ts')
-        type PresetView = keyof typeof PRESET_VIEWS
 
         const { stlPath, stlData } = await resolveStlData(file)
 
@@ -89,7 +88,7 @@ cli
             console.log(`Rendering ${requestedViews.length} views of ${file} into ${options.output}`)
             const pngBuffer = await renderViewGrid({
                 ...baseOptions,
-                views: requestedViews as PresetView[],
+                views: requestedViews,
             })
 
             await fs.writeFile(options.output, pngBuffer)
@@ -97,7 +96,7 @@ cli
         } else {
             let azimuth: number
             let elevation: number
-            const view = requestedViews[0] as PresetView
+            const view = requestedViews[0] ?? 'iso'
 
             if (options.azimuth !== undefined || options.elevation !== undefined) {
                 azimuth = options.azimuth ?? 0
@@ -251,7 +250,8 @@ cli
 
 cli.help()
 cli.version(packageJson.version)
-cli.parse()
+cli.parse(process.argv, { run: false })
+await cli.runMatchedCommand()
 
 // Dawn WebGPU keeps background threads alive — force exit after CLI completes
 setTimeout(() => process.exit(0), 500)

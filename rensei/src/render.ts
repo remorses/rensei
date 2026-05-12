@@ -62,7 +62,7 @@ function loadAndCenterStl(stlPath?: string, stlData?: Buffer) {
         arrayBuffer = stlData.buffer.slice(stlData.byteOffset, stlData.byteOffset + stlData.byteLength) as ArrayBuffer
     } else if (stlPath) {
         const fileBuffer = fs.readFileSync(stlPath)
-        arrayBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength) as ArrayBuffer
+        arrayBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength)
     } else {
         throw new Error('Either stlPath or stlData must be provided')
     }
@@ -181,8 +181,8 @@ async function renderPresetViews(
                 fov,
             )
 
-            renderer.clear()
-            renderer.render(scene, camera)
+            await renderer.clear()
+            await renderer.render(scene, camera)
 
             const pngBuffer = await context.copyToPNGBuffer(context.currentTexture!, 0, 0, width, height)
             results.set(view, pngBuffer)
@@ -257,8 +257,8 @@ export async function renderStl(options: RenderOptions): Promise<Buffer> {
 
     const { renderer, context } = await createRenderer(width, height)
 
-    renderer.clear()
-    renderer.render(scene, camera)
+    await renderer.clear()
+    await renderer.render(scene, camera)
 
     const pngBuffer = await context.copyToPNGBuffer(
         context.currentTexture!,

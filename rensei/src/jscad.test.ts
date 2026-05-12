@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import url from 'node:url'
@@ -44,9 +45,8 @@ describe('jscadToGeometries', () => {
         expect(geometries.length).toBeGreaterThan(0)
 
         // Each geometry should have polygons and transforms (geom3 structure)
-        const geom = geometries[0] as Record<string, unknown>
-        expect(geom).toHaveProperty('polygons')
-        expect(geom).toHaveProperty('transforms')
+        expect(geometries[0]).toHaveProperty('polygons')
+        expect(geometries[0]).toHaveProperty('transforms')
     }, 30_000)
 
     it('throws for scripts without main()', async () => {
@@ -74,8 +74,7 @@ export function main(): unknown {
 
         const geometries = await jscadToGeometries(tsFixturePath)
         expect(geometries.length).toBe(1)
-        const geom = geometries[0] as Record<string, unknown>
-        expect(geom).toHaveProperty('polygons')
+        expect(geometries[0]).toHaveProperty('polygons')
     }, 30_000)
 })
 
@@ -120,4 +119,70 @@ describe('jscad → screenshot pipeline', () => {
 
         fs.writeFileSync(path.join(OUTPUT_DIR, 'jscad-screenshot.png'), pngBuffer)
     }, 60_000)
+})
+
+describe('CLI async completion', () => {
+    it('waits for slow JSCAD imports before arming the WebGPU force-exit timer', async () => {
+        const slowFixturePath = path.resolve(FIXTURE_DIR, 'slow-model.mjs')
+        const outputPath = path.resolve(OUTPUT_DIR, 'slow-model.stl')
+        fs.rmSync(outputPath, { force: true })
+        fs.writeFileSync(
+            slowFixturePath,
+            [
+                "import { createRequire } from 'node:module'",
+                'const require = createRequire(import.meta.url)',
+                "const jscad = require('@jscad/modeling')",
+                'const { cube } = jscad.primitives',
+                '',
+                'await new Promise((resolve) => setTimeout(resolve, 900))',
+                '',
+                'export function main() {',
+                '    return cube({ size: 8 })',
+                '}',
+                '',
+            ].join('\n'),
+        )
+
+        const child = spawn(
+            process.execPath,
+            [
+                '--import',
+                'tsx',
+                path.resolve(__dirname, 'cli.ts'),
+                'stl',
+                slowFixturePath,
+                '--output',
+                outputPath,
+            ],
+            { cwd: path.resolve(__dirname, '..') },
+        )
+
+        let stdout = ''
+        let stderr = ''
+        child.stdout.on('data', (chunk) => { stdout += String(chunk) })
+        child.stderr.on('data', (chunk) => { stderr += String(chunk) })
+
+        const exitCode = await new Promise<number | null>((resolve) => {
+            child.on('close', resolve)
+        })
+
+        const normalizeOutput = (value: string) => value
+            .replaceAll(slowFixturePath, '<fixture>')
+            .replaceAll(outputPath, '<output>')
+
+        expect({
+            exitCode,
+            stdout: normalizeOutput(stdout),
+            stderr: normalizeOutput(stderr),
+        }).toMatchInlineSnapshot(`
+          {
+            "exitCode": 0,
+            "stderr": "",
+            "stdout": "Converting <fixture> to STL...
+          Saved <output> (1 KB)
+          ",
+          }
+        `)
+        expect(fs.statSync(outputPath).size).toBeGreaterThan(100)
+    }, 20_000)
 })
