@@ -20,12 +20,12 @@
 //
 // Cross-section profile (right half, X=radius, Y=height from bed):
 //
-//   Y=36  ─── 7 ═══ 9 ─────────────────  nozzle tip
+//   Y=30  ─── 7 ═══ 9 ─────────────────  nozzle tip
 //             │     │
-//   Y=24  ─── 7─9.5─11.5─16 ════════ 18  funnel floor + nozzle base
+//   Y=18  ─── 7─9.5─11.5─16 ════════ 18  funnel floor + nozzle base
 //                   │   │         ╲
 //                   │   │          ╲ funnel
-//   Y=16  ──────────│───│───────── 28 ══ 30  cylinder top + inner thread end
+//   Y=10  ──────────│───│───────── 28 ══ 30  cylinder top + inner thread end
 //                   │   │           │    │
 //   Y=0   ── 9.5 ══ 11.5 ─────── 28 ════ 30  bed (filter ring + cylinder ring)
 
@@ -51,7 +51,7 @@ export function main() {
     const cylinderInnerRadius = 28
     const cylinderWall = 2
     const cylinderOuterRadius = cylinderInnerRadius + cylinderWall // 30mm
-    const cylinderHeight = 16
+    const cylinderHeight = 10
 
     // Filter attachment cylinder: 24mm INNER ⌀, 2mm wall
     // Only a short lip should be visible inside the bowl.
@@ -60,21 +60,22 @@ export function main() {
 
     // Heights (Y=0 = bed, Y increases toward nozzle tip)
     const bedY = 0
-    const funnelTop = cylinderHeight               // Y=16: funnel-cylinder junction
-    const funnelBottom = funnelTop + 8             // Y=24: funnel narrow end / nozzle base
-    const nozzleTop = funnelBottom + nozzleLength  // Y=36: nozzle tip
+    const funnelTop = cylinderHeight               // Y=10: funnel-cylinder junction
+    const funnelBottom = funnelTop + 8             // Y=18: funnel narrow end / nozzle base
+    const nozzleTop = funnelBottom + nozzleLength  // Y=30: nozzle tip
     const funnelInnerBottom = nozzleBaseRadius - wall
     const filterTop = funnelBottom + 2             // only 2mm visible above bowl floor
 
     // Internal mounting threads. These are temporary dimensions until the
     // mating part is measured: three 1.5mm-wide, 1mm-deep helical starts inside the
-    // larger cylinder, lifted off the bed so the first layer stays simple.
+    // larger cylinder, almost at the opening for earlier engagement.
     const threadStarts = 3
     const threadDepth = 1
     const threadWallOverlap = 0.2
     const threadProfileHeight = 1.5
-    const threadStartY = bedY + 1.5
-    const threadHeight = cylinderHeight - 3
+    const threadTotalHeight = 4.5
+    const threadStartY = bedY + 1
+    const threadHeight = threadTotalHeight - threadProfileHeight
     const threadTurns = 1.25
 
     // Profile polygon — traced counterclockwise, NO self-intersections.
