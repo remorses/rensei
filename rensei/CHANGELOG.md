@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1
+
+1. **Fixed `rensei screenshot` exiting before output is written** — the CLI now awaits the matched command fully before arming the WebGPU shutdown timer. Slow renders no longer exit with code 0 while producing an empty or missing output file.
+
+   Previously, the force-exit watchdog (used to clean up lingering Dawn/WebGPU native threads) could fire mid-render and kill the process before the PNG write completed. The fix parses arguments first, awaits the command, then starts the timer only after real work is done.
+
+   Fixes [#1](https://github.com/remorses/rensei/issues/1).
+
 ## 0.3.0
 
 1. **`--view` flag is now repeatable** — compose multiple preset views into a single PNG grid:
